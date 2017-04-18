@@ -13,13 +13,13 @@
 # limitations under the License.
 
 # The binary to build (just the basename).
-BIN := myapp
+BIN := non-masquerade-daemon
 
 # This repo's root import path (under GOPATH).
-PKG := github.com/thockin/go-build-template
+PKG := k8s.io/non-masquerade-daemon
 
 # Where to push the docker image.
-REGISTRY ?= thockin
+REGISTRY ?= gcr.io/google-containers
 
 # Which architecture to build - see $(ALL_ARCH) for options.
 ARCH ?= amd64
@@ -40,7 +40,7 @@ ALL_ARCH := amd64 arm arm64 ppc64le
 
 # Set default base image dynamically for each arch
 ifeq ($(ARCH),amd64)
-    BASEIMAGE?=alpine
+    BASEIMAGE?=gcr.io/google-containers/debian-iptables-amd64:v7 # we use this base image instead of alpine, because iptables version should match kube-proxy
 endif
 ifeq ($(ARCH),arm)
     BASEIMAGE?=armel/busybox
