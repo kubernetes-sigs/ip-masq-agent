@@ -42,6 +42,8 @@ Note that we created the `ConfigMap` in the same namespace as the daemon pods, a
 
 ## Developing
 
+Clone the repo to `$GOPATH/src/k8s.io/non-masquerade-daemon`.
+
 The build tooling is based on [thockin/go-build-template](https://github.com/thockin/go-build-template).
 
 Run `make` or `make build` to compile the non-masquerade-daemon.  This will use a Docker image
