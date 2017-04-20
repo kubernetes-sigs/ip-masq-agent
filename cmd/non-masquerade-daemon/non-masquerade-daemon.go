@@ -41,10 +41,9 @@ const (
 	// name of nat chain for iptables masquerade rules
 	masqChain     = utiliptables.Chain("NON-MASQUERADE-DAEMON")
 	linkLocalCIDR = "169.254.0.0/16"
+	// path to a yaml or json file
+	configPath = "/etc/config/non-masquerade-daemon"
 )
-
-// Path to a ConfigMap exposed in a volume
-var configPath = "/etc/config/non-masquerade-daemon"
 
 // config object
 type MasqConfig struct {
