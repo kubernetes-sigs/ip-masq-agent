@@ -21,7 +21,7 @@ spec:
       volumes:
         - name: config
           configMap:
-            # Note this ConfigMap must be created in the same namespace as the daemon pods - typically kube-system
+            # Note this ConfigMap must be created in the same namespace as the daemon pods - this spec uses kube-system
             name: non-masquerade-daemon
             optional: true
             items:
