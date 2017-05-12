@@ -48,6 +48,7 @@ const (
 // config object
 type MasqConfig struct {
 	NonMasqueradeCIDRs []string `json:"nonMasqueradeCIDRs"`
+	LinkLocal          bool     `json:"linkLocal"`
 	ResyncInterval     Duration `json:"resyncInterval"`
 }
 
@@ -73,6 +74,7 @@ func NewMasqConfig() *MasqConfig {
 	return &MasqConfig{
 		// Note: RFC 1918 defines the private ip address space as 10.0.0.0/8, 172.16.0.0/12, 192.168.0.0/16
 		NonMasqueradeCIDRs: []string{"10.0.0.0/8", "172.16.0.0/12", "192.168.0.0/16"},
+		LinkLocal:          true,
 		ResyncInterval:     Duration(60 * time.Second),
 	}
 }
@@ -162,6 +164,7 @@ func (m *MasqDaemon) syncConfig(fs fakefs.FileSystem) error {
 	if _, err = fs.Stat(configPath); os.IsNotExist(err) {
 		// file does not exist, use defaults
 		m.config.NonMasqueradeCIDRs = c.NonMasqueradeCIDRs
+		m.config.LinkLocal = c.LinkLocal
 		m.config.ResyncInterval = c.ResyncInterval
 		glog.Infof("no config file found at %q", configPath)
 		return nil
@@ -195,6 +198,11 @@ func (m *MasqDaemon) syncConfig(fs fakefs.FileSystem) error {
 }
 
 func (c *MasqConfig) validate() error {
+	// limit to 64 CIDRs (excluding link-local) to protect against really bad mistakes
+	n := len(c.NonMasqueradeCIDRs)
+	if n > 64 {
+		return fmt.Errorf("The daemon can only accept up to 64 CIDRs (excluding link-local), but got %d CIDRs (excluding link local).", n)
+	}
 	// check CIDRs are valid
 	for _, cidr := range c.NonMasqueradeCIDRs {
 		if err := validateCIDR(cidr); err != nil {
@@ -242,7 +250,9 @@ func (m *MasqDaemon) syncMasqRules() error {
 	writeLine(lines, utiliptables.MakeChainLine(masqChain)) // effectively flushes masqChain atomically with rule restore
 
 	// link-local CIDR is always non-masquerade
-	writeNonMasqRule(lines, linkLocalCIDR)
+	if m.config.LinkLocal {
+		writeNonMasqRule(lines, linkLocalCIDR)
+	}
 
 	// non-masquerade for user-provided CIDRs
 	for _, cidr := range m.config.NonMasqueradeCIDRs {
