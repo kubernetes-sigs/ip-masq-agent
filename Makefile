@@ -13,10 +13,10 @@
 # limitations under the License.
 
 # The binary to build (just the basename).
-BIN := non-masquerade-daemon
+BIN := ip-masq-agent
 
 # This repo's root import path (under GOPATH).
-PKG := k8s.io/non-masquerade-daemon
+PKG := k8s.io/ip-masq-agent
 
 # Where to push the docker image.
 REGISTRY ?= gcr.io/google-containers

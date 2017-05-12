@@ -25,9 +25,9 @@ import (
 	"testing"
 	"time"
 
+	"k8s.io/ip-masq-agent/cmd/ip-masq-agent/testing/fakefs"
 	utiliptables "k8s.io/kubernetes/pkg/util/iptables"
 	iptest "k8s.io/kubernetes/pkg/util/iptables/testing"
-	"k8s.io/non-masquerade-daemon/cmd/non-masquerade-daemon/testing/fakefs"
 )
 
 // turn off glog logging during tests to avoid clutter in output
@@ -235,7 +235,7 @@ func TestWriteNonMasqRule(t *testing.T) {
 	lines := bytes.NewBuffer(nil)
 	cidr := "10.0.0.0/8"
 	want := string(utiliptables.Append) + " " + string(masqChain) +
-		` -m comment --comment "non-masquerade-daemon: cluster-local traffic should not be subject to MASQUERADE"` +
+		` -m comment --comment "ip-masq-agent: cluster-local traffic should not be subject to MASQUERADE"` +
 		" -m addrtype ! --dst-type LOCAL -d " + cidr + " -j RETURN\n"
 	writeNonMasqRule(lines, cidr)
 

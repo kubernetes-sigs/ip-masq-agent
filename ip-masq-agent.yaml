@@ -1,17 +1,17 @@
 apiVersion: extensions/v1beta1
 kind: DaemonSet
 metadata:
-  name: non-masquerade-daemon
+  name: ip-masq-agent
   namespace: kube-system
 spec:
   template:
     metadata:
       labels:
-        k8s-app: non-masquerade-daemon
+        k8s-app: ip-masq-agent
     spec:
       hostNetwork: true
       containers:
-      - name: non-masquerade-daemon
+      - name: ip-masq-agent
         image: gcr.io/google-containers/non-masquerade-daemon-amd64:v0.3.1
         securityContext:
           privileged: true
@@ -22,9 +22,9 @@ spec:
         - name: config
           configMap:
             # Note this ConfigMap must be created in the same namespace as the daemon pods - this spec uses kube-system
-            name: non-masquerade-daemon
+            name: ip-masq-agent
             optional: true
             items:
-              # The daemon looks for its config in a YAML file at /etc/config/non-masquerade-daemon
+              # The daemon looks for its config in a YAML file at /etc/config/ip-masq-agent
               - key: config
-                path: non-masquerade-daemon
+                path: ip-masq-agent

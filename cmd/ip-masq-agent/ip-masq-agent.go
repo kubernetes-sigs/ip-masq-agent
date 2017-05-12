@@ -28,21 +28,21 @@ import (
 
 	utilyaml "k8s.io/apimachinery/pkg/util/yaml"
 	"k8s.io/apiserver/pkg/util/logs"
+	"k8s.io/ip-masq-agent/cmd/ip-masq-agent/testing/fakefs"
 	utildbus "k8s.io/kubernetes/pkg/util/dbus"
 	utilexec "k8s.io/kubernetes/pkg/util/exec"
 	utiliptables "k8s.io/kubernetes/pkg/util/iptables"
 	"k8s.io/kubernetes/pkg/version/verflag"
-	"k8s.io/non-masquerade-daemon/cmd/non-masquerade-daemon/testing/fakefs"
 
 	"github.com/golang/glog"
 )
 
 const (
 	// name of nat chain for iptables masquerade rules
-	masqChain     = utiliptables.Chain("NON-MASQUERADE-DAEMON")
+	masqChain     = utiliptables.Chain("IP-MASQ-AGENT")
 	linkLocalCIDR = "169.254.0.0/16"
 	// path to a yaml or json file
-	configPath = "/etc/config/non-masquerade-daemon"
+	configPath = "/etc/config/ip-masq-agent"
 )
 
 // config object
@@ -273,7 +273,7 @@ func (m *MasqDaemon) syncMasqRules() error {
 // Feel free to dig around in iptables and see if you can figure out exactly why; I haven't had time to fully trace how it parses and handle subcommands.
 // If you want to investigate, get the source via `git clone git://git.netfilter.org/iptables.git`, `git checkout v1.4.21` (the version I've seen this issue on,
 // though it may also happen on others), and start with `git grep XT_EXTENSION_MAXNAMELEN`.
-const postroutingJumpComment = "non-masquerade-daemon: ensure nat POSTROUTING directs all non-LOCAL destination traffic to our custom " + string(masqChain) + " chain"
+const postroutingJumpComment = "ip-masq-agent: ensure nat POSTROUTING directs all non-LOCAL destination traffic to our custom " + string(masqChain) + " chain"
 
 func (m *MasqDaemon) ensurePostroutingJump() error {
 	if _, err := m.iptables.EnsureRule(utiliptables.Append, utiliptables.TableNAT, utiliptables.ChainPostrouting,
@@ -285,7 +285,7 @@ func (m *MasqDaemon) ensurePostroutingJump() error {
 	return nil
 }
 
-const nonMasqRuleComment = `-m comment --comment "non-masquerade-daemon: cluster-local traffic should not be subject to MASQUERADE"`
+const nonMasqRuleComment = `-m comment --comment "ip-masq-agent: cluster-local traffic should not be subject to MASQUERADE"`
 
 func writeNonMasqRule(lines *bytes.Buffer, cidr string) {
 	writeRule(lines, utiliptables.Append, masqChain,
@@ -293,7 +293,7 @@ func writeNonMasqRule(lines *bytes.Buffer, cidr string) {
 		"-m", "addrtype", "!", "--dst-type", "LOCAL", "-d", cidr, "-j", "RETURN")
 }
 
-const masqRuleComment = `-m comment --comment "non-masquerade-daemon: outbound traffic should be subject to MASQUERADE (this match must come after cluster-local CIDR matches)"`
+const masqRuleComment = `-m comment --comment "ip-masq-agent: outbound traffic should be subject to MASQUERADE (this match must come after cluster-local CIDR matches)"`
 
 func writeMasqRule(lines *bytes.Buffer) {
 	writeRule(lines, utiliptables.Append, masqChain,

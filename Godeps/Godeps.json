@@ -1,5 +1,5 @@
 {
-	"ImportPath": "k8s.io/non-masquerade-daemon",
+	"ImportPath": "k8s.io/ip-masq-agent",
 	"GoVersion": "go1.7",
 	"GodepVersion": "v79",
 	"Packages": [
