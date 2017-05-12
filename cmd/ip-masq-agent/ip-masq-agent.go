@@ -48,7 +48,7 @@ const (
 // config object
 type MasqConfig struct {
 	NonMasqueradeCIDRs []string `json:"nonMasqueradeCIDRs"`
-	LinkLocal          bool     `json:"linkLocal"`
+	MasqLinkLocal      bool     `json:"masqLinkLocal"`
 	ResyncInterval     Duration `json:"resyncInterval"`
 }
 
@@ -74,7 +74,7 @@ func NewMasqConfig() *MasqConfig {
 	return &MasqConfig{
 		// Note: RFC 1918 defines the private ip address space as 10.0.0.0/8, 172.16.0.0/12, 192.168.0.0/16
 		NonMasqueradeCIDRs: []string{"10.0.0.0/8", "172.16.0.0/12", "192.168.0.0/16"},
-		LinkLocal:          true,
+		MasqLinkLocal:      false,
 		ResyncInterval:     Duration(60 * time.Second),
 	}
 }
@@ -164,7 +164,7 @@ func (m *MasqDaemon) syncConfig(fs fakefs.FileSystem) error {
 	if _, err = fs.Stat(configPath); os.IsNotExist(err) {
 		// file does not exist, use defaults
 		m.config.NonMasqueradeCIDRs = c.NonMasqueradeCIDRs
-		m.config.LinkLocal = c.LinkLocal
+		m.config.MasqLinkLocal = c.MasqLinkLocal
 		m.config.ResyncInterval = c.ResyncInterval
 		glog.Infof("no config file found at %q", configPath)
 		return nil
@@ -250,7 +250,7 @@ func (m *MasqDaemon) syncMasqRules() error {
 	writeLine(lines, utiliptables.MakeChainLine(masqChain)) // effectively flushes masqChain atomically with rule restore
 
 	// link-local CIDR is always non-masquerade
-	if m.config.LinkLocal {
+	if !m.config.MasqLinkLocal {
 		writeNonMasqRule(lines, linkLocalCIDR)
 	}
 

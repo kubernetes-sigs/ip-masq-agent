@@ -27,7 +27,7 @@ By default, the agent is configured to reload its configuration from the `/etc/c
 
 The agent configuration file should be written in yaml or json syntax, and may contain three optional keys:
 - `nonMasqueradeCIDRs []string`: A list strings in CIDR notation that specify the non-masquerade ranges.
-- `linkLocal bool`: Whether to use `169.254.0.0/16` as a non-masquerade CIDR. True by default.
+- `masqLinkLocal bool`: Whether to use `169.254.0.0/16` as a non-masquerade CIDR. False by default.
 - `resyncInterval string`: The interval at which the agent attempts to reload config from disk. The syntax is any format accepted by Go's [time.ParseDuration](https://golang.org/pkg/time/#ParseDuration) function.
 
 The agent will look for a config file in its container at `/etc/config/ip-masq-agent`. This file can be provided via a `ConfigMap`, plumbed into the container via a `ConfigMapVolumeSource`. As a result, the agent can be reconfigured in a live cluster by creating or editing this `ConfigMap`.

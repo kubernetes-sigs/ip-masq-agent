@@ -86,11 +86,11 @@ var syncConfigTests = []struct {
 nonMasqueradeCIDRs:
   - 172.16.0.0/12
   - 10.0.0.0/8
-linkLocal: false
+masqLinkLocal: true
 resyncInterval: 5s
 `}, nil, &MasqConfig{
 		NonMasqueradeCIDRs: []string{"172.16.0.0/12", "10.0.0.0/8"},
-		LinkLocal:          false,
+		MasqLinkLocal:      true,
 		ResyncInterval:     Duration(5 * time.Second)}},
 
 	{"valid yaml file, just nonMasqueradeCIDRs", fakefs.StringFS{`
@@ -98,21 +98,21 @@ nonMasqueradeCIDRs:
   - 192.168.0.0/16
 `}, nil, &MasqConfig{
 		NonMasqueradeCIDRs: []string{"192.168.0.0/16"},
-		LinkLocal:          NewMasqConfig().LinkLocal,
+		MasqLinkLocal:      NewMasqConfig().MasqLinkLocal,
 		ResyncInterval:     NewMasqConfig().ResyncInterval}},
 
-	{"valid yaml file, just linkLocal", fakefs.StringFS{`
-linkLocal: false
+	{"valid yaml file, just masqLinkLocal", fakefs.StringFS{`
+masqLinkLocal: true
 `}, nil, &MasqConfig{
 		NonMasqueradeCIDRs: NewMasqConfig().NonMasqueradeCIDRs,
-		LinkLocal:          false,
+		MasqLinkLocal:      true,
 		ResyncInterval:     NewMasqConfig().ResyncInterval}},
 
 	{"valid yaml file, just resyncInterval", fakefs.StringFS{`
 resyncInterval: 5m
 `}, nil, &MasqConfig{
 		NonMasqueradeCIDRs: NewMasqConfig().NonMasqueradeCIDRs,
-		LinkLocal:          NewMasqConfig().LinkLocal,
+		MasqLinkLocal:      NewMasqConfig().MasqLinkLocal,
 		ResyncInterval:     Duration(5 * time.Minute)}},
 
 	// invalid yaml
@@ -122,13 +122,13 @@ resyncInterval: 5m
 	{"valid json file, all keys", fakefs.StringFS{`
 {
   "nonMasqueradeCIDRs": ["172.16.0.0/12", "10.0.0.0/8"],
-  "linkLocal": false,
+  "masqLinkLocal": true,
   "resyncInterval": "5s"
 }
 `},
 		nil, &MasqConfig{
 			NonMasqueradeCIDRs: []string{"172.16.0.0/12", "10.0.0.0/8"},
-			LinkLocal:          false,
+			MasqLinkLocal:      true,
 			ResyncInterval:     Duration(5 * time.Second)}},
 
 	{"valid json file, just nonMasqueradeCIDRs", fakefs.StringFS{`
@@ -138,16 +138,17 @@ resyncInterval: 5m
 `},
 		nil, &MasqConfig{
 			NonMasqueradeCIDRs: []string{"192.168.0.0/16"},
-			LinkLocal:          NewMasqConfig().LinkLocal,
+			MasqLinkLocal:      NewMasqConfig().MasqLinkLocal,
 			ResyncInterval:     NewMasqConfig().ResyncInterval}},
 
-	{"valid json file, just linkLocal", fakefs.StringFS{`
+	{"valid json file, just masqLinkLocal", fakefs.StringFS{`
 {
-	"linkLocal": false}
+	"masqLinkLocal": true
+}
 `},
 		nil, &MasqConfig{
 			NonMasqueradeCIDRs: NewMasqConfig().NonMasqueradeCIDRs,
-			LinkLocal:          false,
+			MasqLinkLocal:      true,
 			ResyncInterval:     NewMasqConfig().ResyncInterval}},
 
 	{"valid json file, just resyncInterval", fakefs.StringFS{`
@@ -157,7 +158,7 @@ resyncInterval: 5m
 `},
 		nil, &MasqConfig{
 			NonMasqueradeCIDRs: NewMasqConfig().NonMasqueradeCIDRs,
-			LinkLocal:          NewMasqConfig().LinkLocal,
+			MasqLinkLocal:      NewMasqConfig().MasqLinkLocal,
 			ResyncInterval:     Duration(5 * time.Minute)}},
 
 	// invalid json
@@ -187,6 +188,7 @@ func TestSyncMasqRules(t *testing.T) {
 	m := NewFakeMasqDaemon()
 	want := `*nat
 :` + string(masqChain) + ` - [0:0]
+-A ` + string(masqChain) + ` ` + nonMasqRuleComment + ` -m addrtype ! --dst-type LOCAL -d 169.254.0.0/16 -j RETURN
 -A ` + string(masqChain) + ` ` + masqRuleComment + ` -m addrtype ! --dst-type LOCAL -j MASQUERADE
 COMMIT
 `
