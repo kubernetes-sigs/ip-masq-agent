@@ -40,6 +40,27 @@ kubectl create configmap non-masquerade-daemon --from-file=daemon-config --names
 
 Note that we created the `ConfigMap` in the same namespace as the daemon pods, and named the `ConfigMap` to match the spec in `non-masquerade-daemon.yaml`. This is necessary for the `ConfigMap` to appear in the daemon pods' filesystems.
 
+## Rationale
+(from the [incubator proposal](https://gist.github.com/mtaufen/253309166e7d5aa9e9b560600a438447))
+
+This daemon solves the problem of configuring the CIDR ranges for non-masquerade in a cluster (via iptables rules). Today, this is accomplished by passing a `--non-masquerade-cidr` flag to the Kubelet, which only allows one CIDR to be configured as non-masquerade. [RFC 1918](https://tools.ietf.org/html/rfc1918), however, defines three ranges (`10/8`, `172.16/12`, `192.168/16`) for the private IP address space.
+
+Some users will want to communicate between these ranges without masquerade - for instance, if an organization's existing network uses the `10/8` range, they may wish to run their cluster and `Pod`s in `192.168/16` to avoid IP conflicts. They will also want these `Pod`s to be able to communicate efficiently (no masquerade) with each-other *and* with their existing network resources in `10/8`. This requires that every node in their cluster skips masquerade for both ranges.
+
+We are trying to eliminate networking code from the Kubelet, so rather than extend the Kubelet to accept multiple CIDRs, [mtaufen/non-masquerade-daemon](https://github.com/mtaufen/non-masquerade-daemon) allows you to run a DaemonSet that configures a list of CIDRs as non-masquerade.
+
+## Incubator
+
+This is a [Kubernetes Incubator project](https://github.com/kubernetes/community/blob/master/incubator.md). The incubator team for the project is:
+
+- Author: Mike Taufen (@mtaufen)
+- Sponsor: Tim Hockin (@thockin)
+- Champion: Bowei Du (@bowei)
+- SIG: sig-awesome
+
+## Releasing
+
+See [RELEASE](RELEASE.md).
 
 ## Developing
 
