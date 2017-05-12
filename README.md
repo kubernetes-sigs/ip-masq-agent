@@ -1,6 +1,6 @@
 # non-masquerade-daemon
 
-The non-masquerade-daemon configures `iptables` rules to `MASQUERADE` traffic outside link-local and additional arbitrary IP ranges.
+The non-masquerade-daemon configures `iptables` rules to `MASQUERADE` traffic outside link-local (optional, enabled by default) and additional arbitrary IP ranges.
 
 It creates an `iptables` chain called `NON-MASQUERADE-DAEMON`, which contains match rules for link local (`169.254.0.0/16`) and each of the user-specified IP ranges. It also creates a rule in `POSTROUTING` that jumps to this chain for any traffic not bound for a `LOCAL` destination.
 
@@ -21,15 +21,16 @@ The spec in `non-masquerade-daemon.yaml` specifies the `kube-system` namespace f
 
 Important: You should not attempt to run this daemon in a cluster where the Kubelet is also configuring a non-masquerade CIDR. You can pass `--non-masquerade-cidr=0.0.0.0/0` to the Kubelet to nullify its rule, which will prevent the Kubelet from interfering with this daemon.
 
-By default, the daemon is configured to treat the three private IP ranges specified by [RFC 1918](https://tools.ietf.org/html/rfc1918) as non-masquerade CIDRs. These ranges are `10.0.0.0/8`, `172.16.0.0/12`, and `192.168.0.0/16`. The daemon will also always treat link-local (`169.254.0.0/16`) as a non-masquerade CIDR.
+By default, the daemon is configured to treat the three private IP ranges specified by [RFC 1918](https://tools.ietf.org/html/rfc1918) as non-masquerade CIDRs. These ranges are `10.0.0.0/8`, `172.16.0.0/12`, and `192.168.0.0/16`. The daemon will also treat link-local (`169.254.0.0/16`) as a non-masquerade CIDR by default.
 
 By default, the daemon is configured to reload its configuration from the `/etc/config/non-masquerade-daemon` file in its container every 60 seconds.
 
-The daemon configuration file should be written in yaml or json syntax, and may contain two optional keys:
+The daemon configuration file should be written in yaml or json syntax, and may contain three optional keys:
 - `nonMasqueradeCIDRs []string`: A list strings in CIDR notation that specify the non-masquerade ranges.
+- `linkLocal bool`: Whether to use `169.254.0.0/16` as a non-masquerade CIDR. True by default.
 - `resyncInterval string`: The interval at which the daemon attempts to reload config from disk. The syntax is any format accepted by Go's [time.ParseDuration](https://golang.org/pkg/time/#ParseDuration) function.
 
-The daemon will look for a config file in its container at `/etc/config/non-masquerade-daemon`. This file can be provided via a `ConfigMap`, plumbed into the container via a `ConfigMapVolumeSource`. As a result, the daemon can be reconfigured in a live cluster by creating or editing this `ConfigMap`. 
+The daemon will look for a config file in its container at `/etc/config/non-masquerade-daemon`. This file can be provided via a `ConfigMap`, plumbed into the container via a `ConfigMapVolumeSource`. As a result, the daemon can be reconfigured in a live cluster by creating or editing this `ConfigMap`.
 
 This repo includes a directory-representation of a `ConfigMap` that can configure the daemon (the `daemon-config` directory). To use this directory to create the `ConfigMap` in your cluster:
 
