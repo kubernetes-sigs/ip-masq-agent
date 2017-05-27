@@ -278,27 +278,22 @@ const postroutingJumpComment = "ip-masq-agent: ensure nat POSTROUTING directs al
 func (m *MasqDaemon) ensurePostroutingJump() error {
 	if _, err := m.iptables.EnsureRule(utiliptables.Append, utiliptables.TableNAT, utiliptables.ChainPostrouting,
 		"-m", "comment", "--comment", postroutingJumpComment,
-		// postroutingJumpComment,
 		"-m", "addrtype", "!", "--dst-type", "LOCAL", "-j", string(masqChain)); err != nil {
 		return fmt.Errorf("failed to ensure that %s chain %s jumps to MASQUERADE: %v", utiliptables.TableNAT, masqChain, err)
 	}
 	return nil
 }
 
-const nonMasqRuleComment = `-m comment --comment "ip-masq-agent: cluster-local traffic should not be subject to MASQUERADE"`
+const nonMasqRuleComment = `-m comment --comment "ip-masq-agent: local traffic is not subject to MASQUERADE"`
 
 func writeNonMasqRule(lines *bytes.Buffer, cidr string) {
-	writeRule(lines, utiliptables.Append, masqChain,
-		nonMasqRuleComment,
-		"-m", "addrtype", "!", "--dst-type", "LOCAL", "-d", cidr, "-j", "RETURN")
+	writeRule(lines, utiliptables.Append, masqChain, nonMasqRuleComment, "-d", cidr, "-j", "RETURN")
 }
 
-const masqRuleComment = `-m comment --comment "ip-masq-agent: outbound traffic should be subject to MASQUERADE (this match must come after cluster-local CIDR matches)"`
+const masqRuleComment = `-m comment --comment "ip-masq-agent: outbound traffic is subject to MASQUERADE (must be last in chain)"`
 
 func writeMasqRule(lines *bytes.Buffer) {
-	writeRule(lines, utiliptables.Append, masqChain,
-		masqRuleComment,
-		"-m", "addrtype", "!", "--dst-type", "LOCAL", "-j", "MASQUERADE")
+	writeRule(lines, utiliptables.Append, masqChain, masqRuleComment, "-j", "MASQUERADE")
 }
 
 // Similar syntax to utiliptables.Interface.EnsureRule, except you don't pass a table
