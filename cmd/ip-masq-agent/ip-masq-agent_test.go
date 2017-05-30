@@ -188,8 +188,8 @@ func TestSyncMasqRules(t *testing.T) {
 	m := NewFakeMasqDaemon()
 	want := `*nat
 :` + string(masqChain) + ` - [0:0]
--A ` + string(masqChain) + ` ` + nonMasqRuleComment + ` -m addrtype ! --dst-type LOCAL -d 169.254.0.0/16 -j RETURN
--A ` + string(masqChain) + ` ` + masqRuleComment + ` -m addrtype ! --dst-type LOCAL -j MASQUERADE
+-A ` + string(masqChain) + ` ` + nonMasqRuleComment + ` -d 169.254.0.0/16 -j RETURN
+-A ` + string(masqChain) + ` ` + masqRuleComment + ` -j MASQUERADE
 COMMIT
 `
 	m.syncMasqRules()
@@ -206,11 +206,11 @@ COMMIT
 	m.config = NewMasqConfig()
 	want = `*nat
 :` + string(masqChain) + ` - [0:0]
--A ` + string(masqChain) + ` ` + nonMasqRuleComment + ` -m addrtype ! --dst-type LOCAL -d 169.254.0.0/16 -j RETURN
--A ` + string(masqChain) + ` ` + nonMasqRuleComment + ` -m addrtype ! --dst-type LOCAL -d 10.0.0.0/8 -j RETURN
--A ` + string(masqChain) + ` ` + nonMasqRuleComment + ` -m addrtype ! --dst-type LOCAL -d 172.16.0.0/12 -j RETURN
--A ` + string(masqChain) + ` ` + nonMasqRuleComment + ` -m addrtype ! --dst-type LOCAL -d 192.168.0.0/16 -j RETURN
--A ` + string(masqChain) + ` ` + masqRuleComment + ` -m addrtype ! --dst-type LOCAL -j MASQUERADE
+-A ` + string(masqChain) + ` ` + nonMasqRuleComment + ` -d 169.254.0.0/16 -j RETURN
+-A ` + string(masqChain) + ` ` + nonMasqRuleComment + ` -d 10.0.0.0/8 -j RETURN
+-A ` + string(masqChain) + ` ` + nonMasqRuleComment + ` -d 172.16.0.0/12 -j RETURN
+-A ` + string(masqChain) + ` ` + nonMasqRuleComment + ` -d 192.168.0.0/16 -j RETURN
+-A ` + string(masqChain) + ` ` + masqRuleComment + ` -j MASQUERADE
 COMMIT
 `
 	m.syncMasqRules()
@@ -237,8 +237,8 @@ func TestWriteNonMasqRule(t *testing.T) {
 	lines := bytes.NewBuffer(nil)
 	cidr := "10.0.0.0/8"
 	want := string(utiliptables.Append) + " " + string(masqChain) +
-		` -m comment --comment "ip-masq-agent: cluster-local traffic should not be subject to MASQUERADE"` +
-		" -m addrtype ! --dst-type LOCAL -d " + cidr + " -j RETURN\n"
+		` -m comment --comment "ip-masq-agent: local traffic is not subject to MASQUERADE"` +
+		" -d " + cidr + " -j RETURN\n"
 	writeNonMasqRule(lines, cidr)
 
 	s, err := lines.ReadString('\n')
@@ -246,7 +246,7 @@ func TestWriteNonMasqRule(t *testing.T) {
 		t.Error("writeRule did not append a newline")
 	}
 	if s != want {
-		t.Errorf("writeNonMasqRule(lines, "+cidr+") wrote %q, want %q", s, want)
+		t.Errorf("writeNonMasqRule(lines, "+cidr+"):\n   got: %q\n  want: %q", s, want)
 	}
 }
 
