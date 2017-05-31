@@ -156,7 +156,7 @@ func (m *MasqDaemon) syncConfig(fs fakefs.FileSystem) error {
 	defer func() {
 		if err == nil {
 			json, _ := utiljson.Marshal(c)
-			glog.Infof("using config: %s", string(json))
+			glog.V(2).Infof("using config: %s", string(json))
 		}
 	}()
 
@@ -166,10 +166,10 @@ func (m *MasqDaemon) syncConfig(fs fakefs.FileSystem) error {
 		m.config.NonMasqueradeCIDRs = c.NonMasqueradeCIDRs
 		m.config.MasqLinkLocal = c.MasqLinkLocal
 		m.config.ResyncInterval = c.ResyncInterval
-		glog.Infof("no config file found at %q", configPath)
+		glog.V(2).Infof("no config file found at %q, using default values", configPath)
 		return nil
 	}
-	glog.Infof("config file found at %q", configPath)
+	glog.V(2).Infof("config file found at %q", configPath)
 
 	// file exists, read and parse file
 	yaml, err := fs.ReadFile(configPath)
