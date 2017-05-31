@@ -3,3 +3,8 @@
 /.push-*
 /.container-*
 /.dockerfile-*
+
+# Emacs save files
+*~
+\#*\#
+.\#*
