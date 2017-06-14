@@ -30,7 +30,7 @@ $ make container TAG=v2.0.1
 <...lots of output...>
 container: gcr.io/google-containers/ip-masq-agent-amd64:v2.0.1
 
-$ gcloud docker push -- gcr.io/google-containers/ip-masq-agent-amd64:v2.0.1
+$ docker push -- gcr.io/google-containers/ip-masq-agent-amd64:v2.0.1
 <...lots of output...>
 v2.0.1: digest: sha256:504833aedf3f14379e73296240ed44d54aecd4c02367b004452dfeca2465e5bf size: 950
 ```
