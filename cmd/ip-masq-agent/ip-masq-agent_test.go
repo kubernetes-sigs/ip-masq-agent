@@ -86,10 +86,14 @@ var syncConfigTests = []struct {
 nonMasqueradeCIDRs:
   - 172.16.0.0/12
   - 10.0.0.0/8
+masqueradeCIDRs:
+  - 10.2.3.4/32
+  - 10.5.6.0/24
 masqLinkLocal: true
 resyncInterval: 5s
 `}, nil, &MasqConfig{
 		NonMasqueradeCIDRs: []string{"172.16.0.0/12", "10.0.0.0/8"},
+		MasqueradeCIDRs:    []string{"10.2.3.4/32", "10.5.6.0/24"},
 		MasqLinkLocal:      true,
 		ResyncInterval:     Duration(5 * time.Second)}},
 
@@ -98,6 +102,16 @@ nonMasqueradeCIDRs:
   - 192.168.0.0/16
 `}, nil, &MasqConfig{
 		NonMasqueradeCIDRs: []string{"192.168.0.0/16"},
+		MasqueradeCIDRs:    NewMasqConfig().MasqueradeCIDRs,
+		MasqLinkLocal:      NewMasqConfig().MasqLinkLocal,
+		ResyncInterval:     NewMasqConfig().ResyncInterval}},
+
+	{"valid yaml file, just masqueradeCIDRs", fakefs.StringFS{`
+masqueradeCIDRs:
+  - 10.5.6.0/24
+`}, nil, &MasqConfig{
+		NonMasqueradeCIDRs: NewMasqConfig().NonMasqueradeCIDRs,
+		MasqueradeCIDRs:    []string{"10.5.6.0/24"},
 		MasqLinkLocal:      NewMasqConfig().MasqLinkLocal,
 		ResyncInterval:     NewMasqConfig().ResyncInterval}},
 
@@ -105,6 +119,7 @@ nonMasqueradeCIDRs:
 masqLinkLocal: true
 `}, nil, &MasqConfig{
 		NonMasqueradeCIDRs: NewMasqConfig().NonMasqueradeCIDRs,
+		MasqueradeCIDRs:    NewMasqConfig().MasqueradeCIDRs,
 		MasqLinkLocal:      true,
 		ResyncInterval:     NewMasqConfig().ResyncInterval}},
 
@@ -112,6 +127,7 @@ masqLinkLocal: true
 resyncInterval: 5m
 `}, nil, &MasqConfig{
 		NonMasqueradeCIDRs: NewMasqConfig().NonMasqueradeCIDRs,
+		MasqueradeCIDRs:    NewMasqConfig().MasqueradeCIDRs,
 		MasqLinkLocal:      NewMasqConfig().MasqLinkLocal,
 		ResyncInterval:     Duration(5 * time.Minute)}},
 
@@ -122,12 +138,14 @@ resyncInterval: 5m
 	{"valid json file, all keys", fakefs.StringFS{`
 {
   "nonMasqueradeCIDRs": ["172.16.0.0/12", "10.0.0.0/8"],
+  "masqueradeCIDRs": ["10.2.3.4/32", "10.5.6.0/24"],
   "masqLinkLocal": true,
   "resyncInterval": "5s"
 }
 `},
 		nil, &MasqConfig{
 			NonMasqueradeCIDRs: []string{"172.16.0.0/12", "10.0.0.0/8"},
+			MasqueradeCIDRs:    []string{"10.2.3.4/32", "10.5.6.0/24"},
 			MasqLinkLocal:      true,
 			ResyncInterval:     Duration(5 * time.Second)}},
 
@@ -138,6 +156,18 @@ resyncInterval: 5m
 `},
 		nil, &MasqConfig{
 			NonMasqueradeCIDRs: []string{"192.168.0.0/16"},
+			MasqueradeCIDRs:    NewMasqConfig().MasqueradeCIDRs,
+			MasqLinkLocal:      NewMasqConfig().MasqLinkLocal,
+			ResyncInterval:     NewMasqConfig().ResyncInterval}},
+
+	{"valid json file, just masqueradeCIDRs", fakefs.StringFS{`
+{
+	"masqueradeCIDRs": ["10.5.6.0/24"]
+}
+`},
+		nil, &MasqConfig{
+			NonMasqueradeCIDRs: NewMasqConfig().NonMasqueradeCIDRs,
+			MasqueradeCIDRs:    []string{"10.5.6.0/24"},
 			MasqLinkLocal:      NewMasqConfig().MasqLinkLocal,
 			ResyncInterval:     NewMasqConfig().ResyncInterval}},
 
@@ -148,6 +178,7 @@ resyncInterval: 5m
 `},
 		nil, &MasqConfig{
 			NonMasqueradeCIDRs: NewMasqConfig().NonMasqueradeCIDRs,
+			MasqueradeCIDRs:    NewMasqConfig().MasqueradeCIDRs,
 			MasqLinkLocal:      true,
 			ResyncInterval:     NewMasqConfig().ResyncInterval}},
 
@@ -158,6 +189,7 @@ resyncInterval: 5m
 `},
 		nil, &MasqConfig{
 			NonMasqueradeCIDRs: NewMasqConfig().NonMasqueradeCIDRs,
+			MasqueradeCIDRs:    NewMasqConfig().MasqueradeCIDRs,
 			MasqLinkLocal:      NewMasqConfig().MasqLinkLocal,
 			ResyncInterval:     Duration(5 * time.Minute)}},
 
@@ -189,7 +221,7 @@ func TestSyncMasqRules(t *testing.T) {
 	want := `*nat
 :` + string(masqChain) + ` - [0:0]
 -A ` + string(masqChain) + ` ` + nonMasqRuleComment + ` -d 169.254.0.0/16 -j RETURN
--A ` + string(masqChain) + ` ` + masqRuleComment + ` -j MASQUERADE
+-A ` + string(masqChain) + ` ` + defaultMasqRuleComment + ` -j MASQUERADE
 COMMIT
 `
 	m.syncMasqRules()
@@ -210,7 +242,7 @@ COMMIT
 -A ` + string(masqChain) + ` ` + nonMasqRuleComment + ` -d 10.0.0.0/8 -j RETURN
 -A ` + string(masqChain) + ` ` + nonMasqRuleComment + ` -d 172.16.0.0/12 -j RETURN
 -A ` + string(masqChain) + ` ` + nonMasqRuleComment + ` -d 192.168.0.0/16 -j RETURN
--A ` + string(masqChain) + ` ` + masqRuleComment + ` -j MASQUERADE
+-A ` + string(masqChain) + ` ` + defaultMasqRuleComment + ` -j MASQUERADE
 COMMIT
 `
 	m.syncMasqRules()
