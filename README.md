@@ -53,10 +53,11 @@ We are trying to eliminate networking code from the Kubelet, so rather than exte
 
 This is a [Kubernetes Incubator project](https://github.com/kubernetes/community/blob/master/incubator.md). The incubator team for the project is:
 
-- Author: Mike Taufen (@mtaufen)
+- Current Owners: Rohit Ramkumar (@rramkumar1), Jing Ai (@jingax10)
+- Original Author: Mike Taufen (@mtaufen)
 - Sponsor: Tim Hockin (@thockin)
 - Champion: Bowei Du (@bowei)
-- SIG: sig-awesome
+- SIG: sig-network
 
 ## Releasing
 
