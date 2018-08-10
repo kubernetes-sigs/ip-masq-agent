@@ -19,6 +19,7 @@ package main
 import (
 	"bytes"
 	utiljson "encoding/json"
+	"flag"
 	"fmt"
 	"net"
 	"os"
@@ -38,11 +39,14 @@ import (
 )
 
 const (
-	// name of nat chain for iptables masquerade rules
-	masqChain     = utiliptables.Chain("IP-MASQ-AGENT")
 	linkLocalCIDR = "169.254.0.0/16"
 	// path to a yaml or json file
 	configPath = "/etc/config/ip-masq-agent"
+)
+
+var (
+	// name of nat chain for iptables masquerade rules
+	masqChain utiliptables.Chain
 )
 
 // config object
@@ -98,6 +102,10 @@ func NewMasqDaemon(c *MasqConfig) *MasqDaemon {
 }
 
 func main() {
+	masqChainFlag := flag.String("masq-chain", "IP-MASQ-AGENT", `Name of nat chain for iptables masquerade rules.`)
+	flag.Parse()
+	masqChain = utiliptables.Chain(*masqChainFlag)
+
 	c := NewMasqConfig()
 
 	logs.InitLogs()
@@ -273,11 +281,13 @@ func (m *MasqDaemon) syncMasqRules() error {
 // Feel free to dig around in iptables and see if you can figure out exactly why; I haven't had time to fully trace how it parses and handle subcommands.
 // If you want to investigate, get the source via `git clone git://git.netfilter.org/iptables.git`, `git checkout v1.4.21` (the version I've seen this issue on,
 // though it may also happen on others), and start with `git grep XT_EXTENSION_MAXNAMELEN`.
-const postroutingJumpComment = "ip-masq-agent: ensure nat POSTROUTING directs all non-LOCAL destination traffic to our custom " + string(masqChain) + " chain"
+func postroutingJumpComment() string {
+	return fmt.Sprintf("ip-masq-agent: ensure nat POSTROUTING directs all non-LOCAL destination traffic to our custom %s chain", masqChain)
+}
 
 func (m *MasqDaemon) ensurePostroutingJump() error {
 	if _, err := m.iptables.EnsureRule(utiliptables.Append, utiliptables.TableNAT, utiliptables.ChainPostrouting,
-		"-m", "comment", "--comment", postroutingJumpComment,
+		"-m", "comment", "--comment", postroutingJumpComment(),
 		"-m", "addrtype", "!", "--dst-type", "LOCAL", "-j", string(masqChain)); err != nil {
 		return fmt.Errorf("failed to ensure that %s chain %s jumps to MASQUERADE: %v", utiliptables.TableNAT, masqChain, err)
 	}
