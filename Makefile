@@ -40,7 +40,7 @@ ALL_ARCH := amd64 arm arm64 ppc64le
 
 # Set default base image dynamically for each arch
 ifeq ($(ARCH),amd64)
-    BASEIMAGE?=gcr.io/google-containers/debian-iptables-amd64:v7 # we use this base image instead of alpine, because iptables version should match kube-proxy
+    BASEIMAGE?=gcr.io/google-containers/debian-iptables-amd64:v10.1 # we use this base image instead of alpine, because iptables version should match kube-proxy
 endif
 ifeq ($(ARCH),arm)
     BASEIMAGE?=armel/busybox
