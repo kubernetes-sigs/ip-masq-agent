@@ -82,7 +82,6 @@ bin/$(ARCH)/$(BIN): build-dirs
 	@echo "building: $@"
 	@docker pull $(BUILD_IMAGE)
 	@docker run                                                            \
-	    -ti                                                                \
 	    -u $$(id -u):$$(id -g)                                             \
 	    -v $$(pwd)/.go:/go                                                 \
 	    -v $$(pwd):/go/src/$(PKG)                                          \
@@ -130,7 +129,6 @@ version:
 
 test: build-dirs
 	@docker run                                                            \
-	    -ti                                                                \
 	    -u $$(id -u):$$(id -g)                                             \
 	    -v $$(pwd)/.go:/go                                                 \
 	    -v $$(pwd):/go/src/$(PKG)                                          \
