@@ -38,6 +38,13 @@ SRC_DIRS := cmd pkg # directories which hold app source (not vendored)
 
 ALL_ARCH := amd64 arm arm64 ppc64le
 
+# docker interactive console
+INTERACTIVE := $(shell [ -t 0 ] && echo 1 || echo 0)
+TTY=
+ifeq ($(INTERACTIVE), 1)
+    TTY=t
+endif
+
 # Set default base image dynamically for each arch
 ifeq ($(ARCH),amd64)
     BASEIMAGE?=gcr.io/google-containers/debian-iptables-amd64:v10.1 # we use this base image instead of alpine, because iptables version should match kube-proxy
@@ -82,7 +89,7 @@ bin/$(ARCH)/$(BIN): build-dirs
 	@echo "building: $@"
 	@docker pull $(BUILD_IMAGE)
 	@docker run                                                            \
-	    -ti                                                                \
+	    -$(TTY)i                                                           \
 	    -u $$(id -u):$$(id -g)                                             \
 	    -v $$(pwd)/.go:/go                                                 \
 	    -v $$(pwd):/go/src/$(PKG)                                          \
@@ -130,7 +137,7 @@ version:
 
 test: build-dirs
 	@docker run                                                            \
-	    -ti                                                                \
+	    -$(TTY)i                                                           \
 	    -u $$(id -u):$$(id -g)                                             \
 	    -v $$(pwd)/.go:/go                                                 \
 	    -v $$(pwd):/go/src/$(PKG)                                          \
