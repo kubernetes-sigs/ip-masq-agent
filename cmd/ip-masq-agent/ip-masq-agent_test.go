@@ -82,7 +82,7 @@ var syncConfigTests = []struct {
 	cfg  *MasqConfig       // expected values of the configuration after loading from fs
 }{
 	// valid yaml
-	{"valid yaml file, all keys", fakefs.StringFS{`
+	{"valid yaml file, all keys", fakefs.StringFS{File: `
 nonMasqueradeCIDRs:
   - 172.16.0.0/12
   - 10.0.0.0/8
@@ -93,7 +93,7 @@ resyncInterval: 5s
 		MasqLinkLocal:      true,
 		ResyncInterval:     Duration(5 * time.Second)}},
 
-	{"valid yaml file, just nonMasqueradeCIDRs", fakefs.StringFS{`
+	{"valid yaml file, just nonMasqueradeCIDRs", fakefs.StringFS{File: `
 nonMasqueradeCIDRs:
   - 192.168.0.0/16
 `}, nil, &MasqConfig{
@@ -101,14 +101,14 @@ nonMasqueradeCIDRs:
 		MasqLinkLocal:      NewMasqConfig().MasqLinkLocal,
 		ResyncInterval:     NewMasqConfig().ResyncInterval}},
 
-	{"valid yaml file, just masqLinkLocal", fakefs.StringFS{`
+	{"valid yaml file, just masqLinkLocal", fakefs.StringFS{File: `
 masqLinkLocal: true
 `}, nil, &MasqConfig{
 		NonMasqueradeCIDRs: NewMasqConfig().NonMasqueradeCIDRs,
 		MasqLinkLocal:      true,
 		ResyncInterval:     NewMasqConfig().ResyncInterval}},
 
-	{"valid yaml file, just resyncInterval", fakefs.StringFS{`
+	{"valid yaml file, just resyncInterval", fakefs.StringFS{File: `
 resyncInterval: 5m
 `}, nil, &MasqConfig{
 		NonMasqueradeCIDRs: NewMasqConfig().NonMasqueradeCIDRs,
@@ -116,10 +116,10 @@ resyncInterval: 5m
 		ResyncInterval:     Duration(5 * time.Minute)}},
 
 	// invalid yaml
-	{"invalid yaml file", fakefs.StringFS{`*`}, fmt.Errorf("yaml: did not find expected alphabetic or numeric character"), NewMasqConfig()},
+	{"invalid yaml file", fakefs.StringFS{File: `*`}, fmt.Errorf("yaml: did not find expected alphabetic or numeric character"), NewMasqConfig()},
 
 	// valid json
-	{"valid json file, all keys", fakefs.StringFS{`
+	{"valid json file, all keys", fakefs.StringFS{File: `
 {
   "nonMasqueradeCIDRs": ["172.16.0.0/12", "10.0.0.0/8"],
   "masqLinkLocal": true,
@@ -131,7 +131,7 @@ resyncInterval: 5m
 			MasqLinkLocal:      true,
 			ResyncInterval:     Duration(5 * time.Second)}},
 
-	{"valid json file, just nonMasqueradeCIDRs", fakefs.StringFS{`
+	{"valid json file, just nonMasqueradeCIDRs", fakefs.StringFS{File: `
 {
 	"nonMasqueradeCIDRs": ["192.168.0.0/16"]
 }
@@ -141,7 +141,7 @@ resyncInterval: 5m
 			MasqLinkLocal:      NewMasqConfig().MasqLinkLocal,
 			ResyncInterval:     NewMasqConfig().ResyncInterval}},
 
-	{"valid json file, just masqLinkLocal", fakefs.StringFS{`
+	{"valid json file, just masqLinkLocal", fakefs.StringFS{File: `
 {
 	"masqLinkLocal": true
 }
@@ -151,7 +151,7 @@ resyncInterval: 5m
 			MasqLinkLocal:      true,
 			ResyncInterval:     NewMasqConfig().ResyncInterval}},
 
-	{"valid json file, just resyncInterval", fakefs.StringFS{`
+	{"valid json file, just resyncInterval", fakefs.StringFS{File: `
 {
 	"resyncInterval": "5m"
 }
@@ -162,7 +162,7 @@ resyncInterval: 5m
 			ResyncInterval:     Duration(5 * time.Minute)}},
 
 	// invalid json
-	{"invalid json file", fakefs.StringFS{`{*`}, fmt.Errorf("invalid character '*' looking for beginning of object key string"), NewMasqConfig()},
+	{"invalid json file", fakefs.StringFS{File: `{*`}, fmt.Errorf("invalid character '*' looking for beginning of object key string"), NewMasqConfig()},
 
 	// file does not exist
 	{"no config file", fakefs.NotExistFS{}, nil, NewMasqConfig()}, // If the file does not exist, defaults should be used
