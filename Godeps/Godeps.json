@@ -1,6 +1,6 @@
 {
 	"ImportPath": "k8s.io/ip-masq-agent",
-	"GoVersion": "go1.7",
+	"GoVersion": "go1.11",
 	"GodepVersion": "v79",
 	"Packages": [
 		"./..."
