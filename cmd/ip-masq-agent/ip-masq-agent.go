@@ -31,9 +31,9 @@ import (
 	"k8s.io/apiserver/pkg/util/logs"
 	"k8s.io/ip-masq-agent/cmd/ip-masq-agent/testing/fakefs"
 	utildbus "k8s.io/kubernetes/pkg/util/dbus"
-	utilexec "k8s.io/kubernetes/pkg/util/exec"
 	utiliptables "k8s.io/kubernetes/pkg/util/iptables"
 	"k8s.io/kubernetes/pkg/version/verflag"
+	utilexec "k8s.io/utils/exec"
 
 	"github.com/golang/glog"
 )

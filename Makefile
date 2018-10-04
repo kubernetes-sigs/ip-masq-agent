@@ -61,7 +61,7 @@ endif
 
 IMAGE := $(REGISTRY)/$(BIN)-$(ARCH)
 
-BUILD_IMAGE ?= golang:1.7-alpine
+BUILD_IMAGE ?= golang:1.11-alpine
 
 # If you want to build all binaries, see the 'all-build' rule.
 # If you want to build all containers, see the 'all-container' rule.
@@ -97,6 +97,7 @@ bin/$(ARCH)/$(BIN): build-dirs
 	    -v $$(pwd)/bin/$(ARCH):/go/bin/linux_$(ARCH)                       \
 	    -v $$(pwd)/.go/std/$(ARCH):/usr/local/go/pkg/linux_$(ARCH)_static  \
 	    -w /go/src/$(PKG)                                                  \
+            -e GOCACHE=off                                                     \
 	    $(BUILD_IMAGE)                                                     \
 	    /bin/sh -c "                                                       \
 	        ARCH=$(ARCH)                                                   \
@@ -144,6 +145,7 @@ test: build-dirs
 	    -v $$(pwd)/bin/$(ARCH):/go/bin                                     \
 	    -v $$(pwd)/.go/std/$(ARCH):/usr/local/go/pkg/linux_$(ARCH)_static  \
 	    -w /go/src/$(PKG)                                                  \
+            -e GOCACHE=off                                                     \
 	    $(BUILD_IMAGE)                                                     \
 	    /bin/sh -c "                                                       \
 	        ./build/test.sh $(SRC_DIRS)                                    \

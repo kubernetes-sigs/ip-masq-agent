@@ -1,7 +1,5 @@
 package(default_visibility = ["//visibility:public"])
 
-licenses(["notice"])
-
 load(
     "@io_bazel_rules_go//go:def.bzl",
     "go_library",
@@ -13,29 +11,45 @@ go_library(
     srcs = [
         "doc.go",
         "iptables.go",
+        "iptables_linux.go",
+        "iptables_unsupported.go",
         "save_restore.go",
     ],
-    tags = ["automanaged"],
+    importpath = "k8s.io/kubernetes/pkg/util/iptables",
     deps = [
         "//pkg/util/dbus:go_default_library",
-        "//pkg/util/exec:go_default_library",
         "//pkg/util/version:go_default_library",
-        "//vendor:github.com/godbus/dbus",
-        "//vendor:github.com/golang/glog",
-        "//vendor:k8s.io/apimachinery/pkg/util/sets",
-    ],
+        "//staging/src/k8s.io/apimachinery/pkg/util/sets:go_default_library",
+        "//staging/src/k8s.io/apiserver/pkg/util/trace:go_default_library",
+        "//vendor/github.com/godbus/dbus:go_default_library",
+        "//vendor/github.com/golang/glog:go_default_library",
+        "//vendor/k8s.io/utils/exec:go_default_library",
+    ] + select({
+        "@io_bazel_rules_go//go/platform:linux": [
+            "//staging/src/k8s.io/apimachinery/pkg/util/errors:go_default_library",
+            "//staging/src/k8s.io/apimachinery/pkg/util/wait:go_default_library",
+            "//vendor/golang.org/x/sys/unix:go_default_library",
+        ],
+        "//conditions:default": [],
+    }),
 )
 
 go_test(
     name = "go_default_test",
-    srcs = ["iptables_test.go"],
-    library = ":go_default_library",
-    tags = ["automanaged"],
-    deps = [
-        "//pkg/util/dbus:go_default_library",
-        "//pkg/util/exec:go_default_library",
-        "//vendor:k8s.io/apimachinery/pkg/util/sets",
+    srcs = [
+        "iptables_test.go",
+        "save_restore_test.go",
     ],
+    embed = [":go_default_library"],
+    deps = select({
+        "@io_bazel_rules_go//go/platform:linux": [
+            "//pkg/util/dbus:go_default_library",
+            "//staging/src/k8s.io/apimachinery/pkg/util/sets:go_default_library",
+            "//vendor/k8s.io/utils/exec:go_default_library",
+            "//vendor/k8s.io/utils/exec/testing:go_default_library",
+        ],
+        "//conditions:default": [],
+    }),
 )
 
 filegroup(
