@@ -114,38 +114,25 @@ func main() {
 	verflag.PrintAndExitIfRequested()
 
 	m := NewMasqDaemon(c)
-	if err := m.Run(); err != nil {
-		fmt.Fprintf(os.Stderr, "%v\n", err)
-		os.Exit(1)
-	}
+	m.Run()
 }
 
-func (m *MasqDaemon) Run() error {
-	// sync to any config on disk
-	if err := m.osSyncConfig(); err != nil {
-		glog.Errorf("error syncing configuration: %v", err)
-		return err
-	}
-	// initial setup
-	if err := m.syncMasqRules(); err != nil {
-		glog.Errorf("error syncing masquerade rules: %v", err)
-		return err
-	}
-	// resync occasionally to reconfigure or heal from any rule decay
+func (m *MasqDaemon) Run() {
+	// Periodically resync to reconfigure or heal from any rule decay
 	for {
-		select {
-		case <-time.After(time.Duration(m.config.ResyncInterval)):
+		func() {
+			defer time.Sleep(time.Duration(m.config.ResyncInterval))
 			// resync config
 			if err := m.osSyncConfig(); err != nil {
 				glog.Errorf("error syncing configuration: %v", err)
-				return err
+				return
 			}
 			// resync rules
 			if err := m.syncMasqRules(); err != nil {
 				glog.Errorf("error syncing masquerade rules: %v", err)
-				return err
+				return
 			}
-		}
+		}()
 	}
 }
 
