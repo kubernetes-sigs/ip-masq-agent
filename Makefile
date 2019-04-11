@@ -50,13 +50,13 @@ ifeq ($(ARCH),amd64)
     BASEIMAGE?=gcr.io/google-containers/debian-iptables-amd64:v10.1 # we use this base image instead of alpine, because iptables version should match kube-proxy
 endif
 ifeq ($(ARCH),arm)
-    BASEIMAGE?=armel/busybox
+    BASEIMAGE?=k8s.gcr.io/debian-base-arm:v1.0.0
 endif
 ifeq ($(ARCH),arm64)
-    BASEIMAGE?=aarch64/busybox
+    BASEIMAGE?=k8s.gcr.io/debian-base-arm64:v1.0.0
 endif
 ifeq ($(ARCH),ppc64le)
-    BASEIMAGE?=ppc64le/busybox
+    BASEIMAGE?=k8s.gcr.io/debian-base-ppc64le:v1.0.0
 endif
 
 IMAGE := $(REGISTRY)/$(BIN)-$(ARCH)
