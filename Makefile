@@ -47,7 +47,7 @@ endif
 
 # Set default base image dynamically for each arch
 ifeq ($(ARCH),amd64)
-    BASEIMAGE?=gcr.io/google-containers/debian-iptables-amd64:v10.1 # we use this base image instead of alpine, because iptables version should match kube-proxy
+    BASEIMAGE?=gcr.io/google-containers/debian-iptables-amd64:v11.0.2
 endif
 ifeq ($(ARCH),arm)
     BASEIMAGE?=k8s.gcr.io/debian-base-arm:v1.0.0
