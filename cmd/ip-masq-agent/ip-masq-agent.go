@@ -46,7 +46,9 @@ const (
 
 var (
 	// name of nat chain for iptables masquerade rules
-	masqChain utiliptables.Chain
+	masqChain                         utiliptables.Chain
+	masqChainFlag                     = flag.String("masq-chain", "IP-MASQ-AGENT", `Name of nat chain for iptables masquerade rules.`)
+	noMasqueradeAllReservedRangesFlag = flag.Bool("nomasq-all-reserved-ranges", false, "Whether to disable masquerade for all IPv4 ranges reserved by RFCs.")
 )
 
 // config object
@@ -73,11 +75,24 @@ func (d *Duration) UnmarshalJSON(json []byte) error {
 	return fmt.Errorf("expected string value for unmarshal to field of type Duration, got %q", s)
 }
 
-// reutrns a MasqConfig with default values
-func NewMasqConfig() *MasqConfig {
+// returns a MasqConfig with default values
+func NewMasqConfig(masqAllReservedRanges bool) *MasqConfig {
+	// RFC 1918 defines the private ip address space as 10.0.0.0/8, 172.16.0.0/12, 192.168.0.0/16
+	nonMasq := []string{"10.0.0.0/8", "172.16.0.0/12", "192.168.0.0/16"}
+
+	if masqAllReservedRanges {
+		nonMasq = append(nonMasq,
+			"100.64.0.0/10",  // RFC 6598
+			"192.0.0.0/24",   // RFC 6890
+			"192.0.2.0/24",   // RFC 5737
+			"192.88.99.0/24", // RFC 7526
+			"198.18.0.0/15",  // RFC 2544
+			"203.0.113.0/24", // RFC 5737
+			"240.0.0.0/4")    // Former Class E range obsoleted by RFC 3232
+	}
+
 	return &MasqConfig{
-		// Note: RFC 1918 defines the private ip address space as 10.0.0.0/8, 172.16.0.0/12, 192.168.0.0/16
-		NonMasqueradeCIDRs: []string{"10.0.0.0/8", "172.16.0.0/12", "192.168.0.0/16"},
+		NonMasqueradeCIDRs: nonMasq,
 		MasqLinkLocal:      false,
 		ResyncInterval:     Duration(60 * time.Second),
 	}
@@ -102,11 +117,10 @@ func NewMasqDaemon(c *MasqConfig) *MasqDaemon {
 }
 
 func main() {
-	masqChainFlag := flag.String("masq-chain", "IP-MASQ-AGENT", `Name of nat chain for iptables masquerade rules.`)
 	flag.Parse()
 	masqChain = utiliptables.Chain(*masqChainFlag)
 
-	c := NewMasqConfig()
+	c := NewMasqConfig(*noMasqueradeAllReservedRangesFlag)
 
 	logs.InitLogs()
 	defer logs.FlushLogs()
@@ -147,7 +161,7 @@ func (m *MasqDaemon) osSyncConfig() error {
 // Error if the file is found but cannot be parsed.
 func (m *MasqDaemon) syncConfig(fs fakefs.FileSystem) error {
 	var err error
-	c := NewMasqConfig()
+	c := NewMasqConfig(*noMasqueradeAllReservedRangesFlag)
 	defer func() {
 		if err == nil {
 			json, _ := utiljson.Marshal(c)
