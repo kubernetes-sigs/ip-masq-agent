@@ -21,7 +21,7 @@ The spec in `ip-masq-agent.yaml` specifies the `kube-system` namespace for the D
 
 Important: You should not attempt to run this agent in a cluster where the Kubelet is also configuring a non-masquerade CIDR. You can pass `--non-masquerade-cidr=0.0.0.0/0` to the Kubelet to nullify its rule, which will prevent the Kubelet from interfering with this agent.
 
-By default, the agent is configured to treat the three private IP ranges specified by [RFC 1918](https://tools.ietf.org/html/rfc1918) as non-masquerade CIDRs. These ranges are `10.0.0.0/8`, `172.16.0.0/12`, and `192.168.0.0/16`. The agent will also treat link-local (`169.254.0.0/16`) as a non-masquerade CIDR by default.
+By default, the agent is configured to treat the three private IP ranges specified by [RFC 1918](https://tools.ietf.org/html/rfc1918) as non-masquerade CIDRs. These ranges are `10.0.0.0/8`, `172.16.0.0/12`, and `192.168.0.0/16`. To change this behavior, see the flags section below. The agent will also treat link-local (`169.254.0.0/16`) as a non-masquerade CIDR by default.
 
 By default, the agent is configured to reload its configuration from the `/etc/config/ip-masq-agent` file in its container every 60 seconds.
 
@@ -39,6 +39,17 @@ kubectl create configmap ip-masq-agent --from-file=agent-config --namespace=kube
 ```
 
 Note that we created the `ConfigMap` in the same namespace as the DaemonSet Pods, and named the `ConfigMap` to match the spec in `ip-masq-agent.yaml`. This is necessary for the `ConfigMap` to appear in the Pods' filesystems.
+
+### Agent Flags
+
+The agent accepts two flags, which may be specified in the yaml file.
+
+`masq-chain`
+:  The name of the `iptables` chain to use. By default set to `IP-MASQ-AGENT`
+
+`nomasq-all-reserved-ranges`
+:  Whether or not to masquerade all RFC reserved ranges when the configmap is empty. The default is `false`. When `false`, the agent will masquerade to every destination except the ranges reserved by RFC 1918 (namely `10.0.0.0/8`, `172.16.0.0/12`, and `192.168.0.0/16`). When `true`, the agent will masquerade to every destination that is not marked reserved by an RFC. The full list of ranges is (`10.0.0.0/8`, `172.16.0.0/12`, `192.168.0.0/16`, `100.64.0.0/10`, `192.0.0.0/24`, `192.0.2.0/24`, `192.88.99.0/24`, `198.18.0.0/15`, `203.0.113.0/24`, and `240.0.0.0/4`). Note however, that this list of ranges is overridden by specifying the nonMasqueradeCIDRs key in the agent configmap.
+
 
 ## Rationale
 (from the [incubator proposal](https://gist.github.com/mtaufen/253309166e7d5aa9e9b560600a438447))

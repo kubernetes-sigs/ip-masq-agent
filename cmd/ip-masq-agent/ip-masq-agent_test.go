@@ -45,6 +45,36 @@ func NewFakeMasqDaemon() *MasqDaemon {
 	}
 }
 
+// Returns a MasqConfig with config values that are the same as the default values when the
+// noMasqueradeAllReservedRangesFlag is false.
+func NewMasqConfigNoReservedRanges() *MasqConfig {
+	return &MasqConfig{
+		NonMasqueradeCIDRs: []string{"10.0.0.0/8", "172.16.0.0/12", "192.168.0.0/16"},
+		MasqLinkLocal:      false,
+		ResyncInterval:     Duration(60 * time.Second),
+	}
+}
+
+// Returns a MasqConfig with config values that are the same as the default values when the
+// noMasqueradeAllReservedRangesFlag is true.
+func NewMasqConfigWithReservedRanges() *MasqConfig {
+	return &MasqConfig{
+		NonMasqueradeCIDRs: []string{
+			"10.0.0.0/8",
+			"172.16.0.0/12",
+			"192.168.0.0/16",
+			"100.64.0.0/10",
+			"192.0.0.0/24",
+			"192.0.2.0/24",
+			"192.88.99.0/24",
+			"198.18.0.0/15",
+			"203.0.113.0/24",
+			"240.0.0.0/4"},
+		MasqLinkLocal:  false,
+		ResyncInterval: Duration(60 * time.Second),
+	}
+}
+
 // specs for testing config validation
 var validateConfigTests = []struct {
 	cfg *MasqConfig
@@ -53,7 +83,7 @@ var validateConfigTests = []struct {
 	// Empty CIDR List
 	{&MasqConfig{}, nil},
 	// Default Config
-	{NewMasqConfig(), nil},
+	{NewMasqConfigNoReservedRanges(), nil},
 	// CIDR that doesn't match regex
 	{&MasqConfig{NonMasqueradeCIDRs: []string{"abcdefg"}}, fmt.Errorf(cidrMatchErrFmt, "abcdefg", cidrRE)},
 	// Multiple CIDRs, one doesn't match regex
@@ -98,25 +128,25 @@ nonMasqueradeCIDRs:
   - 192.168.0.0/16
 `}, nil, &MasqConfig{
 		NonMasqueradeCIDRs: []string{"192.168.0.0/16"},
-		MasqLinkLocal:      NewMasqConfig().MasqLinkLocal,
-		ResyncInterval:     NewMasqConfig().ResyncInterval}},
+		MasqLinkLocal:      NewMasqConfigNoReservedRanges().MasqLinkLocal,
+		ResyncInterval:     NewMasqConfigNoReservedRanges().ResyncInterval}},
 
 	{"valid yaml file, just masqLinkLocal", fakefs.StringFS{File: `
 masqLinkLocal: true
 `}, nil, &MasqConfig{
-		NonMasqueradeCIDRs: NewMasqConfig().NonMasqueradeCIDRs,
+		NonMasqueradeCIDRs: NewMasqConfigNoReservedRanges().NonMasqueradeCIDRs,
 		MasqLinkLocal:      true,
-		ResyncInterval:     NewMasqConfig().ResyncInterval}},
+		ResyncInterval:     NewMasqConfigNoReservedRanges().ResyncInterval}},
 
 	{"valid yaml file, just resyncInterval", fakefs.StringFS{File: `
 resyncInterval: 5m
 `}, nil, &MasqConfig{
-		NonMasqueradeCIDRs: NewMasqConfig().NonMasqueradeCIDRs,
-		MasqLinkLocal:      NewMasqConfig().MasqLinkLocal,
+		NonMasqueradeCIDRs: NewMasqConfigNoReservedRanges().NonMasqueradeCIDRs,
+		MasqLinkLocal:      NewMasqConfigNoReservedRanges().MasqLinkLocal,
 		ResyncInterval:     Duration(5 * time.Minute)}},
 
 	// invalid yaml
-	{"invalid yaml file", fakefs.StringFS{File: `*`}, fmt.Errorf("yaml: did not find expected alphabetic or numeric character"), NewMasqConfig()},
+	{"invalid yaml file", fakefs.StringFS{File: `*`}, fmt.Errorf("yaml: did not find expected alphabetic or numeric character"), NewMasqConfigNoReservedRanges()},
 
 	// valid json
 	{"valid json file, all keys", fakefs.StringFS{File: `
@@ -138,8 +168,8 @@ resyncInterval: 5m
 `},
 		nil, &MasqConfig{
 			NonMasqueradeCIDRs: []string{"192.168.0.0/16"},
-			MasqLinkLocal:      NewMasqConfig().MasqLinkLocal,
-			ResyncInterval:     NewMasqConfig().ResyncInterval}},
+			MasqLinkLocal:      NewMasqConfigNoReservedRanges().MasqLinkLocal,
+			ResyncInterval:     NewMasqConfigNoReservedRanges().ResyncInterval}},
 
 	{"valid json file, just masqLinkLocal", fakefs.StringFS{File: `
 {
@@ -147,9 +177,9 @@ resyncInterval: 5m
 }
 `},
 		nil, &MasqConfig{
-			NonMasqueradeCIDRs: NewMasqConfig().NonMasqueradeCIDRs,
+			NonMasqueradeCIDRs: NewMasqConfigNoReservedRanges().NonMasqueradeCIDRs,
 			MasqLinkLocal:      true,
-			ResyncInterval:     NewMasqConfig().ResyncInterval}},
+			ResyncInterval:     NewMasqConfigNoReservedRanges().ResyncInterval}},
 
 	{"valid json file, just resyncInterval", fakefs.StringFS{File: `
 {
@@ -157,22 +187,22 @@ resyncInterval: 5m
 }
 `},
 		nil, &MasqConfig{
-			NonMasqueradeCIDRs: NewMasqConfig().NonMasqueradeCIDRs,
-			MasqLinkLocal:      NewMasqConfig().MasqLinkLocal,
+			NonMasqueradeCIDRs: NewMasqConfigNoReservedRanges().NonMasqueradeCIDRs,
+			MasqLinkLocal:      NewMasqConfigNoReservedRanges().MasqLinkLocal,
 			ResyncInterval:     Duration(5 * time.Minute)}},
 
 	// invalid json
-	{"invalid json file", fakefs.StringFS{File: `{*`}, fmt.Errorf("invalid character '*' looking for beginning of object key string"), NewMasqConfig()},
+	{"invalid json file", fakefs.StringFS{File: `{*`}, fmt.Errorf("invalid character '*' looking for beginning of object key string"), NewMasqConfigNoReservedRanges()},
 
 	// file does not exist
-	{"no config file", fakefs.NotExistFS{}, nil, NewMasqConfig()}, // If the file does not exist, defaults should be used
+	{"no config file", fakefs.NotExistFS{}, nil, NewMasqConfigNoReservedRanges()}, // If the file does not exist, defaults should be used
 }
 
 // tests MasqDaemon.syncConfig
 func TestSyncConfig(t *testing.T) {
 	for _, tt := range syncConfigTests {
 		m := NewFakeMasqDaemon()
-		m.config = NewMasqConfig()
+		m.config = NewMasqConfigNoReservedRanges()
 		err := m.syncConfig(tt.fs)
 		if errorToString(err) != errorToString(tt.err) {
 			t.Errorf("MasqDaemon.syncConfig(fs: %s) => %s, want %s", tt.desc, errorToString(err), errorToString(tt.err))
@@ -184,27 +214,26 @@ func TestSyncConfig(t *testing.T) {
 
 // tests MasqDaemon.syncMasqRules
 func TestSyncMasqRules(t *testing.T) {
-	// empty config
-	m := NewFakeMasqDaemon()
-	want := `*nat
+	var syncMasqRulesTests = []struct {
+		desc string      // human readable description of the test
+		cfg  *MasqConfig // Masq configuration to use
+		err  error       // expected error, if any. If nil, no error expected
+		want string      // String expected to be sent to iptables-restore
+	}{
+		{
+			desc: "empty config",
+			cfg:  &MasqConfig{},
+			want: `*nat
 :` + string(masqChain) + ` - [0:0]
 -A ` + string(masqChain) + ` ` + nonMasqRuleComment + ` -d 169.254.0.0/16 -j RETURN
 -A ` + string(masqChain) + ` ` + masqRuleComment + ` -j MASQUERADE
 COMMIT
-`
-	m.syncMasqRules()
-	fipt, ok := m.iptables.(*iptest.FakeIPTables)
-	if !ok {
-		t.Errorf("MasqDaemon wasn't using the expected iptables mock")
-	}
-	if string(fipt.Lines) != want {
-		t.Errorf("syncMasqRules wrote %q, want %q", string(fipt.Lines), want)
-	}
-
-	// default config
-	m = NewFakeMasqDaemon()
-	m.config = NewMasqConfig()
-	want = `*nat
+`,
+		},
+		{
+			desc: "default config masquerading reserved ranges",
+			cfg:  NewMasqConfigNoReservedRanges(),
+			want: `*nat
 :` + string(masqChain) + ` - [0:0]
 -A ` + string(masqChain) + ` ` + nonMasqRuleComment + ` -d 169.254.0.0/16 -j RETURN
 -A ` + string(masqChain) + ` ` + nonMasqRuleComment + ` -d 10.0.0.0/8 -j RETURN
@@ -212,14 +241,43 @@ COMMIT
 -A ` + string(masqChain) + ` ` + nonMasqRuleComment + ` -d 192.168.0.0/16 -j RETURN
 -A ` + string(masqChain) + ` ` + masqRuleComment + ` -j MASQUERADE
 COMMIT
-`
-	m.syncMasqRules()
-	fipt, ok = m.iptables.(*iptest.FakeIPTables)
-	if !ok {
-		t.Errorf("MasqDaemon wasn't using the expected iptables mock")
+`,
+		},
+		{
+			desc: "default config not masquerading reserved ranges",
+			cfg:  NewMasqConfigWithReservedRanges(),
+			want: `*nat
+:` + string(masqChain) + ` - [0:0]
+-A ` + string(masqChain) + ` ` + nonMasqRuleComment + ` -d 169.254.0.0/16 -j RETURN
+-A ` + string(masqChain) + ` ` + nonMasqRuleComment + ` -d 10.0.0.0/8 -j RETURN
+-A ` + string(masqChain) + ` ` + nonMasqRuleComment + ` -d 172.16.0.0/12 -j RETURN
+-A ` + string(masqChain) + ` ` + nonMasqRuleComment + ` -d 192.168.0.0/16 -j RETURN
+-A ` + string(masqChain) + ` ` + nonMasqRuleComment + ` -d 100.64.0.0/10 -j RETURN
+-A ` + string(masqChain) + ` ` + nonMasqRuleComment + ` -d 192.0.0.0/24 -j RETURN
+-A ` + string(masqChain) + ` ` + nonMasqRuleComment + ` -d 192.0.2.0/24 -j RETURN
+-A ` + string(masqChain) + ` ` + nonMasqRuleComment + ` -d 192.88.99.0/24 -j RETURN
+-A ` + string(masqChain) + ` ` + nonMasqRuleComment + ` -d 198.18.0.0/15 -j RETURN
+-A ` + string(masqChain) + ` ` + nonMasqRuleComment + ` -d 203.0.113.0/24 -j RETURN
+-A ` + string(masqChain) + ` ` + nonMasqRuleComment + ` -d 240.0.0.0/4 -j RETURN
+-A ` + string(masqChain) + ` ` + masqRuleComment + ` -j MASQUERADE
+COMMIT
+`,
+		},
 	}
-	if string(fipt.Lines) != want {
-		t.Errorf("syncMasqRules wrote %q, want %q", string(fipt.Lines), want)
+
+	for _, tt := range syncMasqRulesTests {
+		t.Run(tt.desc, func(t *testing.T) {
+			m := NewFakeMasqDaemon()
+			m.config = tt.cfg
+			m.syncMasqRules()
+			fipt, ok := m.iptables.(*iptest.FakeIPTables)
+			if !ok {
+				t.Errorf("MasqDaemon wasn't using the expected iptables mock")
+			}
+			if string(fipt.Lines) != tt.want {
+				t.Errorf("syncMasqRules wrote %q, want %q", string(fipt.Lines), tt.want)
+			}
+		})
 	}
 }
 
