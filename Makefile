@@ -38,6 +38,9 @@ SRC_DIRS := cmd pkg # directories which hold app source (not vendored)
 
 ALL_ARCH := amd64 arm arm64 ppc64le
 
+# Ensure that the docker command line supports the manifest images
+export DOCKER_CLI_EXPERIMENTAL=enabled
+
 # docker interactive console
 INTERACTIVE := $(shell [ -t 0 ] && echo 1 || echo 0)
 TTY=
@@ -60,6 +63,7 @@ ifeq ($(ARCH),ppc64le)
 endif
 
 IMAGE := $(REGISTRY)/$(BIN)-$(ARCH)
+MANIFEST_IMAGE := $(REGISTRY)/$(BIN)
 
 BUILD_IMAGE ?= golang:1.11-alpine
 
@@ -82,6 +86,9 @@ all-build: $(addprefix build-, $(ALL_ARCH))
 all-container: $(addprefix container-, $(ALL_ARCH))
 
 all-push: $(addprefix push-, $(ALL_ARCH))
+	docker manifest create --amend $(MANIFEST_IMAGE):$(VERSION) $(shell echo $(ALL_ARCH) | sed -e "s~[^ ]*~$(MANIFEST_IMAGE)\-&:$(VERSION)~g")
+	@for arch in $(ALL_ARCH); do docker manifest annotate --arch $${arch} ${MANIFEST_IMAGE}:${VERSION} ${MANIFEST_IMAGE}-$${arch}:${VERSION}; done
+	docker manifest push --purge ${MANIFEST_IMAGE}:${VERSION}
 
 build: bin/$(ARCH)/$(BIN)
 
