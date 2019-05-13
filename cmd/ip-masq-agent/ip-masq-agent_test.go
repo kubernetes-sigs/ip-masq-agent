@@ -85,11 +85,11 @@ var validateConfigTests = []struct {
 	// Default Config
 	{NewMasqConfigNoReservedRanges(), nil},
 	// CIDR that doesn't match regex
-	{&MasqConfig{NonMasqueradeCIDRs: []string{"abcdefg"}}, fmt.Errorf(cidrMatchErrFmt, "abcdefg", cidrRE)},
+	{&MasqConfig{NonMasqueradeCIDRs: []string{"abcdefg"}}, fmt.Errorf(cidrParseErrFmt, "abcdefg", fmt.Errorf("invalid CIDR address: %s", "abcdefg"))},
 	// Multiple CIDRs, one doesn't match regex
-	{&MasqConfig{NonMasqueradeCIDRs: []string{"10.0.0.0/8", "abcdefg"}}, fmt.Errorf(cidrMatchErrFmt, "abcdefg", cidrRE)},
+	{&MasqConfig{NonMasqueradeCIDRs: []string{"10.0.0.0/8", "abcdefg"}}, fmt.Errorf(cidrParseErrFmt, "abcdefg", fmt.Errorf("invalid CIDR address: %s", "abcdefg"))},
 	// CIDR that matches regex but can't be parsed
-	{&MasqConfig{NonMasqueradeCIDRs: []string{"10.256.0.0/16"}}, fmt.Errorf(cidrParseErrFmt, "10.256.0.0/16", fmt.Errorf("invalid CIDR address: 10.256.0.0/16"))},
+	{&MasqConfig{NonMasqueradeCIDRs: []string{"10.256.0.0/16"}}, fmt.Errorf(cidrParseErrFmt, "10.256.0.0/16", fmt.Errorf("invalid CIDR address: %s", "10.256.0.0/16"))},
 	// Misaligned CIDR
 	{&MasqConfig{NonMasqueradeCIDRs: []string{"10.0.0.1/8"}}, fmt.Errorf(cidrAlignErrFmt, "10.0.0.1/8", "10.0.0.1", "10.0.0.0/8")},
 }
