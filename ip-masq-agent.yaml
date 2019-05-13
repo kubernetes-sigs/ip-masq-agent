@@ -14,7 +14,9 @@ spec:
       - name: ip-masq-agent
         image: gcr.io/google-containers/ip-masq-agent-amd64:v2.0.0
         securityContext:
-          privileged: true
+          privileged: false
+          capabilities:
+            add: ["NET_ADMIN", "NET_RAW"]
         volumeMounts:
           - name: config
             mountPath: /etc/config
