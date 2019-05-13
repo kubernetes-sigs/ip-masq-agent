@@ -50,16 +50,16 @@ endif
 
 # Set default base image dynamically for each arch
 ifeq ($(ARCH),amd64)
-    BASEIMAGE?=gcr.io/google-containers/debian-iptables-amd64:v11.0.2
+    BASEIMAGE?=k8s.gcr.io/debian-iptables-amd64:v11.0.2
 endif
 ifeq ($(ARCH),arm)
-    BASEIMAGE?=k8s.gcr.io/debian-base-arm:v1.0.0
+    BASEIMAGE?=k8s.gcr.io/debian-iptables-arm:v11.0.2
 endif
 ifeq ($(ARCH),arm64)
-    BASEIMAGE?=k8s.gcr.io/debian-base-arm64:v1.0.0
+    BASEIMAGE?=k8s.gcr.io/debian-iptables-arm64:v11.0.2
 endif
 ifeq ($(ARCH),ppc64le)
-    BASEIMAGE?=k8s.gcr.io/debian-base-ppc64le:v1.0.0
+    BASEIMAGE?=k8s.gcr.io/debian-iptables-ppc64le:v11.0.2
 endif
 
 IMAGE := $(REGISTRY)/$(BIN)-$(ARCH)
