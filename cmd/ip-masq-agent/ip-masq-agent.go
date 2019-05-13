@@ -23,7 +23,6 @@ import (
 	"fmt"
 	"net"
 	"os"
-	"regexp"
 	"strings"
 	"time"
 
@@ -221,17 +220,10 @@ func (c *MasqConfig) validate() error {
 	return nil
 }
 
-const cidrRE = `^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}/\d{1,2}$`
-const cidrMatchErrFmt = "CIDR %q did not match %q (for example, '10.0.0.0/8' is correct CIDR notation)"
 const cidrParseErrFmt = "CIDR %q could not be parsed, %v"
 const cidrAlignErrFmt = "CIDR %q is not aligned to a CIDR block, ip: %q network: %q"
 
 func validateCIDR(cidr string) error {
-	// regex test
-	re := regexp.MustCompile(cidrRE)
-	if !re.MatchString(cidr) {
-		return fmt.Errorf(cidrMatchErrFmt, cidr, cidrRE)
-	}
 	// parse test
 	ip, ipnet, err := net.ParseCIDR(cidr)
 	if err != nil {
