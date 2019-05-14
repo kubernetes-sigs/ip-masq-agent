@@ -68,6 +68,7 @@ func NewMasqConfigWithReservedRanges() *MasqConfig {
 			"192.0.2.0/24",
 			"192.88.99.0/24",
 			"198.18.0.0/15",
+			"198.51.100.0/24",
 			"203.0.113.0/24",
 			"240.0.0.0/4"},
 		MasqLinkLocal:  false,
@@ -257,6 +258,7 @@ COMMIT
 -A ` + string(masqChain) + ` ` + nonMasqRuleComment + ` -d 192.0.2.0/24 -j RETURN
 -A ` + string(masqChain) + ` ` + nonMasqRuleComment + ` -d 192.88.99.0/24 -j RETURN
 -A ` + string(masqChain) + ` ` + nonMasqRuleComment + ` -d 198.18.0.0/15 -j RETURN
+-A ` + string(masqChain) + ` ` + nonMasqRuleComment + ` -d 198.51.100.0/24 -j RETURN
 -A ` + string(masqChain) + ` ` + nonMasqRuleComment + ` -d 203.0.113.0/24 -j RETURN
 -A ` + string(masqChain) + ` ` + nonMasqRuleComment + ` -d 240.0.0.0/4 -j RETURN
 -A ` + string(masqChain) + ` ` + masqRuleComment + ` -j MASQUERADE

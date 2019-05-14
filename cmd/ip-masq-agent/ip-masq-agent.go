@@ -81,13 +81,14 @@ func NewMasqConfig(masqAllReservedRanges bool) *MasqConfig {
 
 	if masqAllReservedRanges {
 		nonMasq = append(nonMasq,
-			"100.64.0.0/10",  // RFC 6598
-			"192.0.0.0/24",   // RFC 6890
-			"192.0.2.0/24",   // RFC 5737
-			"192.88.99.0/24", // RFC 7526
-			"198.18.0.0/15",  // RFC 2544
-			"203.0.113.0/24", // RFC 5737
-			"240.0.0.0/4")    // Former Class E range obsoleted by RFC 3232
+			"100.64.0.0/10",   // RFC 6598
+			"192.0.0.0/24",    // RFC 6890
+			"192.0.2.0/24",    // RFC 5737
+			"192.88.99.0/24",  // RFC 7526
+			"198.18.0.0/15",   // RFC 2544
+			"198.51.100.0/24", // RFC 5737
+			"203.0.113.0/24",  // RFC 5737
+			"240.0.0.0/4")     // Former Class E range obsoleted by RFC 3232
 	}
 
 	return &MasqConfig{
