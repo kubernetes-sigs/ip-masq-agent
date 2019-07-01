@@ -39,6 +39,8 @@ import (
 
 const (
 	linkLocalCIDR = "169.254.0.0/16"
+	// RFC 4291
+	linkLocalCIDRIPv6 = "FE80::/10"
 	// path to a yaml or json file
 	configPath = "/etc/config/ip-masq-agent"
 )
@@ -100,19 +102,23 @@ func NewMasqConfig(masqAllReservedRanges bool) *MasqConfig {
 
 // daemon object
 type MasqDaemon struct {
-	config   *MasqConfig
-	iptables utiliptables.Interface
+	config    *MasqConfig
+	iptables  utiliptables.Interface
+	ip6tables utiliptables.Interface
 }
 
 // returns a MasqDaemon with default values, including an initialized utiliptables.Interface
 func NewMasqDaemon(c *MasqConfig) *MasqDaemon {
 	execer := utilexec.New()
 	dbus := utildbus.New()
-	protocol := utiliptables.ProtocolIpv4
-	iptables := utiliptables.New(execer, dbus, protocol)
+	protocolv4 := utiliptables.ProtocolIpv4
+	protocolv6 := utiliptables.ProtocolIpv6
+	iptables := utiliptables.New(execer, dbus, protocolv4)
+	ip6tables := utiliptables.New(execer, dbus, protocolv6)
 	return &MasqDaemon{
-		config:   c,
-		iptables: iptables,
+		config:    c,
+		iptables:  iptables,
+		ip6tables: ip6tables,
 	}
 }
 
@@ -240,6 +246,8 @@ func validateCIDR(cidr string) error {
 func (m *MasqDaemon) syncMasqRules() error {
 	// make sure our custom chain for non-masquerade exists
 	m.iptables.EnsureChain(utiliptables.TableNAT, masqChain)
+	// make sure our custom chain for ipv6 non-masquerade exists
+	m.ip6tables.EnsureChain(utiliptables.TableNAT, masqChain)
 
 	// ensure that any non-local in POSTROUTING jumps to masqChain
 	if err := m.ensurePostroutingJump(); err != nil {
@@ -251,21 +259,37 @@ func (m *MasqDaemon) syncMasqRules() error {
 	writeLine(lines, "*nat")
 	writeLine(lines, utiliptables.MakeChainLine(masqChain)) // effectively flushes masqChain atomically with rule restore
 
+	// build up lines to pass to ip6tables-restore
+	lines6 := bytes.NewBuffer(nil)
+	writeLine(lines6, "*nat")
+	writeLine(lines6, utiliptables.MakeChainLine(masqChain)) // effectively flushes masqChain atomically with rule restore
+
 	// link-local CIDR is always non-masquerade
 	if !m.config.MasqLinkLocal {
 		writeNonMasqRule(lines, linkLocalCIDR)
+		writeNonMasqRule(lines6, linkLocalCIDRIPv6)
 	}
 
 	// non-masquerade for user-provided CIDRs
 	for _, cidr := range m.config.NonMasqueradeCIDRs {
-		writeNonMasqRule(lines, cidr)
+		if !isIPv6CIDR(cidr) {
+			writeNonMasqRule(lines, cidr)
+			continue
+		}
+		writeNonMasqRule(lines6, cidr)
 	}
 
 	// masquerade all other traffic that is not bound for a --dst-type LOCAL destination
 	writeMasqRule(lines)
+	writeMasqRule(lines6)
 
 	writeLine(lines, "COMMIT")
+	writeLine(lines6, "COMMIT")
+
 	if err := m.iptables.RestoreAll(lines.Bytes(), utiliptables.NoFlushTables, utiliptables.NoRestoreCounters); err != nil {
+		return err
+	}
+	if err := m.ip6tables.RestoreAll(lines6.Bytes(), utiliptables.NoFlushTables, utiliptables.NoRestoreCounters); err != nil {
 		return err
 	}
 	return nil
@@ -284,6 +308,11 @@ func (m *MasqDaemon) ensurePostroutingJump() error {
 		"-m", "comment", "--comment", postroutingJumpComment(),
 		"-m", "addrtype", "!", "--dst-type", "LOCAL", "-j", string(masqChain)); err != nil {
 		return fmt.Errorf("failed to ensure that %s chain %s jumps to MASQUERADE: %v", utiliptables.TableNAT, masqChain, err)
+	}
+	if _, err := m.ip6tables.EnsureRule(utiliptables.Append, utiliptables.TableNAT, utiliptables.ChainPostrouting,
+		"-m", "comment", "--comment", postroutingJumpComment(),
+		"-m", "addrtype", "!", "--dst-type", "LOCAL", "-j", string(masqChain)); err != nil {
+		return fmt.Errorf("failed to ensure that %s chain %s jumps to MASQUERADE: %v for ipv6", utiliptables.TableNAT, masqChain, err)
 	}
 	return nil
 }
@@ -310,4 +339,19 @@ func writeRule(lines *bytes.Buffer, position utiliptables.RulePosition, chain ut
 // Join all words with spaces, terminate with newline and write to buf.
 func writeLine(lines *bytes.Buffer, words ...string) {
 	lines.WriteString(strings.Join(words, " ") + "\n")
+}
+
+// isIPv6CIDR checks if the provided cidr block belongs to ipv6 family.
+// If cidr belongs to ipv6 family, return true else it returns false
+// which means the cidr belongs to ipv4 family
+func isIPv6CIDR(cidr string) bool {
+	ip, _, _ := net.ParseCIDR(cidr)
+	return isIPv6(ip.String())
+}
+
+// isIPv6 checks if the provided ip belongs to ipv6 family.
+// If ip belongs to ipv6 family, return true else it returns false
+// which means the ip belongs to ipv6 family
+func isIPv6(ip string) bool {
+	return net.ParseIP(ip).To4() == nil
 }
