@@ -40,8 +40,9 @@ func TestMain(m *testing.M) {
 // returns a MasqDaemon with empty config values and a fake iptables interface
 func NewFakeMasqDaemon() *MasqDaemon {
 	return &MasqDaemon{
-		config:   &MasqConfig{},
-		iptables: iptest.NewFake(),
+		config:    &MasqConfig{},
+		iptables:  iptest.NewFake(),
+		ip6tables: iptest.NewFake(),
 	}
 }
 
@@ -197,11 +198,25 @@ resyncInterval: 5m
 
 	// file does not exist
 	{"no config file", fakefs.NotExistFS{}, nil, NewMasqConfigNoReservedRanges()}, // If the file does not exist, defaults should be used
+
+	// valid json with ipv6 non masquerade cidr
+	{"valid json file, all keys with ipv6 cidr", fakefs.StringFS{File: `
+		{
+		  "nonMasqueradeCIDRs": ["172.16.0.0/12", "10.0.0.0/8", "fc00::/7"],
+		  "masqLinkLocal": true,
+		  "resyncInterval": "5s"
+		}
+		`},
+		nil, &MasqConfig{
+			NonMasqueradeCIDRs: []string{"172.16.0.0/12", "10.0.0.0/8", "fc00::/7"},
+			MasqLinkLocal:      true,
+			ResyncInterval:     Duration(5 * time.Second)}},
 }
 
 // tests MasqDaemon.syncConfig
 func TestSyncConfig(t *testing.T) {
 	for _, tt := range syncConfigTests {
+		flag.Set("enable-ipv6", "true")
 		m := NewFakeMasqDaemon()
 		m.config = NewMasqConfigNoReservedRanges()
 		err := m.syncConfig(tt.fs)
@@ -265,6 +280,22 @@ COMMIT
 COMMIT
 `,
 		},
+		{
+			desc: "config has ipv4 and ipv6 non masquerade cidr",
+			cfg: &MasqConfig{
+				NonMasqueradeCIDRs: []string{
+					"10.244.0.0/16",
+					"fc00::/7",
+				},
+			},
+			want: `*nat
+:` + string(masqChain) + ` - [0:0]
+-A ` + string(masqChain) + ` ` + nonMasqRuleComment + ` -d 169.254.0.0/16 -j RETURN
+-A ` + string(masqChain) + ` ` + nonMasqRuleComment + ` -d 10.244.0.0/16 -j RETURN
+-A ` + string(masqChain) + ` ` + masqRuleComment + ` -j MASQUERADE
+COMMIT
+`,
+		},
 	}
 
 	for _, tt := range syncMasqRulesTests {
@@ -283,6 +314,68 @@ COMMIT
 	}
 }
 
+// tests MasqDaemon.syncMasqRulesIPv6
+func TestSyncMasqRulesIPv6(t *testing.T) {
+	var syncMasqRulesIPv6Tests = []struct {
+		desc string      // human readable description of the test
+		cfg  *MasqConfig // Masq configuration to use
+		err  error       // expected error, if any. If nil, no error expected
+		want string      // String expected to be sent to iptables-restore
+	}{
+		{
+			desc: "empty config",
+			cfg:  &MasqConfig{},
+			want: `*nat
+:` + string(masqChain) + ` - [0:0]
+-A ` + string(masqChain) + ` ` + nonMasqRuleComment + ` -d fe80::/10 -j RETURN
+-A ` + string(masqChain) + ` ` + masqRuleComment + ` -j MASQUERADE
+COMMIT
+`,
+		},
+		{
+			desc: "config has ipv4 and ipv6 non masquerade cidr",
+			cfg: &MasqConfig{
+				NonMasqueradeCIDRs: []string{
+					"10.244.0.0/16",
+					"fc00::/7",
+				},
+			},
+			want: `*nat
+:` + string(masqChain) + ` - [0:0]
+-A ` + string(masqChain) + ` ` + nonMasqRuleComment + ` -d fe80::/10 -j RETURN
+-A ` + string(masqChain) + ` ` + nonMasqRuleComment + ` -d fc00::/7 -j RETURN
+-A ` + string(masqChain) + ` ` + masqRuleComment + ` -j MASQUERADE
+COMMIT
+`,
+		},
+		{
+			desc: "config has masqLinkLocalIPv6: true",
+			cfg:  &MasqConfig{MasqLinkLocalIPv6: true},
+			want: `*nat
+:` + string(masqChain) + ` - [0:0]
+-A ` + string(masqChain) + ` ` + masqRuleComment + ` -j MASQUERADE
+COMMIT
+`,
+		},
+	}
+
+	for _, tt := range syncMasqRulesIPv6Tests {
+		t.Run(tt.desc, func(t *testing.T) {
+			flag.Set("enable-ipv6", "true")
+			m := NewFakeMasqDaemon()
+			m.config = tt.cfg
+			m.syncMasqRulesIPv6()
+			fipt6, ok := m.ip6tables.(*iptest.FakeIPTables)
+			if !ok {
+				t.Errorf("MasqDaemon wasn't using the expected iptables mock")
+			}
+			if string(fipt6.Lines) != tt.want {
+				t.Errorf("syncMasqRulesIPv6 wrote %q, want %q", string(fipt6.Lines), tt.want)
+			}
+		})
+	}
+}
+
 // TODO(mtaufen): switch to an iptables mock that allows us to check the results of EnsureRule
 // tests m.ensurePostroutingJump
 func TestEnsurePostroutingJump(t *testing.T) {
@@ -294,19 +387,40 @@ func TestEnsurePostroutingJump(t *testing.T) {
 
 // tests writeNonMasqRule
 func TestWriteNonMasqRule(t *testing.T) {
-	lines := bytes.NewBuffer(nil)
-	cidr := "10.0.0.0/8"
-	want := string(utiliptables.Append) + " " + string(masqChain) +
-		` -m comment --comment "ip-masq-agent: local traffic is not subject to MASQUERADE"` +
-		" -d " + cidr + " -j RETURN\n"
-	writeNonMasqRule(lines, cidr)
-
-	s, err := lines.ReadString('\n')
-	if err != nil {
-		t.Error("writeRule did not append a newline")
+	var writeNonMasqRuleTests = []struct {
+		desc string
+		cidr string
+		want string
+	}{
+		{
+			desc: "with ipv4 non masquerade cidr",
+			cidr: "10.0.0.0/8",
+			want: string(utiliptables.Append) + " " + string(masqChain) +
+				` -m comment --comment "ip-masq-agent: local traffic is not subject to MASQUERADE"` +
+				" -d 10.0.0.0/8 -j RETURN\n",
+		},
+		{
+			desc: "with ipv6 non masquerade cidr",
+			cidr: "fc00::/7",
+			want: string(utiliptables.Append) + " " + string(masqChain) +
+				` -m comment --comment "ip-masq-agent: local traffic is not subject to MASQUERADE"` +
+				" -d fc00::/7 -j RETURN\n",
+		},
 	}
-	if s != want {
-		t.Errorf("writeNonMasqRule(lines, "+cidr+"):\n   got: %q\n  want: %q", s, want)
+
+	for _, tt := range writeNonMasqRuleTests {
+		t.Run(tt.desc, func(t *testing.T) {
+			lines := bytes.NewBuffer(nil)
+			writeNonMasqRule(lines, tt.cidr)
+
+			s, err := lines.ReadString('\n')
+			if err != nil {
+				t.Error("writeRule did not append a newline")
+			}
+			if s != tt.want {
+				t.Errorf("writeNonMasqRule(lines, "+tt.cidr+"):\n   got: %q\n  want: %q", s, tt.want)
+			}
+		})
 	}
 }
 

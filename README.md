@@ -28,6 +28,7 @@ By default, the agent is configured to reload its configuration from the `/etc/c
 The agent configuration file should be written in yaml or json syntax, and may contain three optional keys:
 - `nonMasqueradeCIDRs []string`: A list strings in CIDR notation that specify the non-masquerade ranges.
 - `masqLinkLocal bool`: Whether to masquerade traffic to `169.254.0.0/16`. False by default.
+- `masqLinkLocalIPv6 bool`: Whether to masquerade traffic to `fe80::/10`. False by default.
 - `resyncInterval string`: The interval at which the agent attempts to reload config from disk. The syntax is any format accepted by Go's [time.ParseDuration](https://golang.org/pkg/time/#ParseDuration) function.
 
 The agent will look for a config file in its container at `/etc/config/ip-masq-agent`. This file can be provided via a `ConfigMap`, plumbed into the container via a `ConfigMapVolumeSource`. As a result, the agent can be reconfigured in a live cluster by creating or editing this `ConfigMap`.
@@ -50,6 +51,8 @@ The agent accepts two flags, which may be specified in the yaml file.
 `nomasq-all-reserved-ranges`
 :  Whether or not to masquerade all RFC reserved ranges when the configmap is empty. The default is `false`. When `false`, the agent will masquerade to every destination except the ranges reserved by RFC 1918 (namely `10.0.0.0/8`, `172.16.0.0/12`, and `192.168.0.0/16`). When `true`, the agent will masquerade to every destination that is not marked reserved by an RFC. The full list of ranges is (`10.0.0.0/8`, `172.16.0.0/12`, `192.168.0.0/16`, `100.64.0.0/10`, `192.0.0.0/24`, `192.0.2.0/24`, `192.88.99.0/24`, `198.18.0.0/15`, `198.51.100.0/24`, `203.0.113.0/24`, and `240.0.0.0/4`). Note however, that this list of ranges is overridden by specifying the nonMasqueradeCIDRs key in the agent configmap.
 
+`enable-ipv6`
+: Whether to configurate ip6tables rules. By default `enable-ipv6` is false. 
 
 ## Rationale
 (from the [incubator proposal](https://gist.github.com/mtaufen/253309166e7d5aa9e9b560600a438447))
