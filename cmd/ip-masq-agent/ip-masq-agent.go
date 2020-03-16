@@ -23,6 +23,8 @@ import (
 	"fmt"
 	"net"
 	"os"
+	"os/exec"
+	"regexp"
 	"strings"
 	"time"
 
@@ -35,6 +37,7 @@ import (
 	utilexec "k8s.io/utils/exec"
 
 	"github.com/golang/glog"
+	"golang.org/x/mod/semver"
 )
 
 const (
@@ -109,6 +112,25 @@ type MasqDaemon struct {
 	config    *MasqConfig
 	iptables  utiliptables.Interface
 	ip6tables utiliptables.Interface
+	version   string
+}
+
+// iptables 1.6.2 brings with support for fully randomizing masquerade rules which can help mitigate race conditions
+// https://tech.xing.com/a-reason-for-unexplained-connection-timeouts-on-kubernetes-docker-abd041cf7e02
+const iptablesMinVersion = "v1.6.2"
+
+func iptablesVersionLookup() string {
+	var version string
+	cmd := exec.Command("iptables", []string{"--version"}...)
+	output, err := cmd.Output()
+	if err != nil {
+		return version
+	}
+	matches := regexp.MustCompile(`v\d+\.\d+\.\d+`).FindStringSubmatch(string(output))
+	if len(matches) >= 1 {
+		version = matches[0]
+	}
+	return version
 }
 
 // NewMasqDaemon returns a MasqDaemon with default values, including an initialized utiliptables.Interface
@@ -123,6 +145,7 @@ func NewMasqDaemon(c *MasqConfig) *MasqDaemon {
 		config:    c,
 		iptables:  iptables,
 		ip6tables: ip6tables,
+		version:   iptablesVersionLookup(),
 	}
 }
 
@@ -285,14 +308,11 @@ func (m *MasqDaemon) syncMasqRules() error {
 	}
 
 	// masquerade all other traffic that is not bound for a --dst-type LOCAL destination
-	writeMasqRule(lines)
+	writeMasqRule(m.version, lines)
 
 	writeLine(lines, "COMMIT")
 
-	if err := m.iptables.RestoreAll(lines.Bytes(), utiliptables.NoFlushTables, utiliptables.NoRestoreCounters); err != nil {
-		return err
-	}
-	return nil
+	return m.iptables.RestoreAll(lines.Bytes(), utiliptables.NoFlushTables, utiliptables.NoRestoreCounters)
 }
 
 func (m *MasqDaemon) syncMasqRulesIPv6() error {
@@ -325,7 +345,7 @@ func (m *MasqDaemon) syncMasqRulesIPv6() error {
 		}
 
 		// masquerade all other traffic that is not bound for a --dst-type LOCAL destination
-		writeMasqRule(lines6)
+		writeMasqRule(m.version, lines6)
 
 		writeLine(lines6, "COMMIT")
 
@@ -370,8 +390,13 @@ func writeNonMasqRule(lines *bytes.Buffer, cidr string) {
 
 const masqRuleComment = `-m comment --comment "ip-masq-agent: outbound traffic is subject to MASQUERADE (must be last in chain)"`
 
-func writeMasqRule(lines *bytes.Buffer) {
-	writeRule(lines, utiliptables.Append, masqChain, masqRuleComment, "-j", "MASQUERADE")
+func writeMasqRule(iptablesVersion string, lines *bytes.Buffer) {
+	if semver.Compare(iptablesVersion, iptablesMinVersion) >= 0 {
+		writeRule(lines, utiliptables.Append, masqChain, "-m", "addrtype", "--src-type", "LOCAL", "-j", "RETURN")
+		writeRule(lines, utiliptables.Append, masqChain, masqRuleComment, "-j", "MASQUERADE", "--random-fully")
+	} else {
+		writeRule(lines, utiliptables.Append, masqChain, masqRuleComment, "-j", "MASQUERADE")
+	}
 }
 
 // Similar syntax to utiliptables.Interface.EnsureRule, except you don't pass a table
