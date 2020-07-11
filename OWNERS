@@ -2,7 +2,6 @@ reviewers:
   - mtaufen
   - thockin
   - bowei
-  - dnardo
   - mrhohn
   - varunmar
   - grayluck
@@ -10,5 +9,6 @@ approvers:
   - mtaufen
   - thockin
   - bowei
-  - dnardo
   - mrhohn
+emeritus_approvers:
+  - dnardo
