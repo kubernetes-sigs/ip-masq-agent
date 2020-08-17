@@ -59,6 +59,7 @@ type MasqConfig struct {
 	MasqLinkLocal      bool     `json:"masqLinkLocal"`
 	MasqLinkLocalIPv6  bool     `json:"masqLinkLocalIPv6"`
 	ResyncInterval     Duration `json:"resyncInterval"`
+	SnatTarget         string   `json:"snatTarget"`
 }
 
 // Duration - Go's JSON unmarshaler can't handle time.ParseDuration syntax when unmarshaling into time.Duration, so we do it here
@@ -101,6 +102,7 @@ func NewMasqConfig(masqAllReservedRanges bool) *MasqConfig {
 		MasqLinkLocal:      false,
 		MasqLinkLocalIPv6:  false,
 		ResyncInterval:     Duration(60 * time.Second),
+		SnatTarget:         "",
 	}
 }
 
@@ -192,6 +194,7 @@ func (m *MasqDaemon) syncConfig(fs fakefs.FileSystem) error {
 		m.config.MasqLinkLocal = c.MasqLinkLocal
 		m.config.MasqLinkLocalIPv6 = c.MasqLinkLocalIPv6
 		m.config.ResyncInterval = c.ResyncInterval
+		m.config.SnatTarget = c.SnatTarget
 		glog.V(2).Infof("no config file found at %q, using default values", configPath)
 		return nil
 	}
@@ -239,6 +242,12 @@ func (c *MasqConfig) validate() error {
 			return fmt.Errorf("ipv6 is not enabled, but ipv6 cidr %s provided. Enable ipv6 using --enable-ipv6 agent flag", cidr)
 		}
 	}
+	// check if SNAT target is a valid ip
+	if c.SnatTarget != "" {
+		if err := validateIP(c.SnatTarget); err != nil {
+			return err
+		}
+	}
 	return nil
 }
 
@@ -254,6 +263,16 @@ func validateCIDR(cidr string) error {
 	// alignment test
 	if !ip.Equal(ipnet.IP) {
 		return fmt.Errorf(cidrAlignErrFmt, cidr, ip, ipnet.String())
+	}
+	return nil
+}
+
+const ipParseErrFmt = "IP %q could not be parsed"
+
+func validateIP(ip string) error {
+	// parse test
+	if net.ParseIP(ip) == nil {
+		return fmt.Errorf(ipParseErrFmt, ip)
 	}
 	return nil
 }
@@ -284,8 +303,12 @@ func (m *MasqDaemon) syncMasqRules() error {
 		}
 	}
 
-	// masquerade all other traffic that is not bound for a --dst-type LOCAL destination
-	writeMasqRule(lines)
+	if m.config.SnatTarget == "" {
+		// masquerade all other traffic that is not bound for a --dst-type LOCAL destination
+		writeMasqRule(lines)
+	} else {
+		writeSnatRule(lines, m.config.SnatTarget)
+	}
 
 	writeLine(lines, "COMMIT")
 
@@ -372,6 +395,12 @@ const masqRuleComment = `-m comment --comment "ip-masq-agent: outbound traffic i
 
 func writeMasqRule(lines *bytes.Buffer) {
 	writeRule(lines, utiliptables.Append, masqChain, masqRuleComment, "-j", "MASQUERADE")
+}
+
+const snatRuleComment = `-m comment --comment "ip-masq-agent: outbound traffic is subject to SNAT (must be last in chain)"`
+
+func writeSnatRule(lines *bytes.Buffer, target string) {
+	writeRule(lines, utiliptables.Append, masqChain, snatRuleComment, "-j", "SNAT", "--to-source", target)
 }
 
 // Similar syntax to utiliptables.Interface.EnsureRule, except you don't pass a table

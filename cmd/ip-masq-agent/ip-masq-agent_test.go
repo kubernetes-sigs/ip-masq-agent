@@ -77,6 +77,15 @@ func NewMasqConfigWithReservedRanges() *MasqConfig {
 	}
 }
 
+func NewMasqConfigWithSnat() *MasqConfig {
+	return &MasqConfig{
+		NonMasqueradeCIDRs: []string{"10.0.0.0/8", "172.16.0.0/12", "192.168.0.0/16"},
+		MasqLinkLocal:      false,
+		ResyncInterval:     Duration(60 * time.Second),
+		SnatTarget:         "192.168.0.42",
+	}
+}
+
 // specs for testing config validation
 var validateConfigTests = []struct {
 	cfg *MasqConfig
@@ -94,6 +103,8 @@ var validateConfigTests = []struct {
 	{&MasqConfig{NonMasqueradeCIDRs: []string{"10.256.0.0/16"}}, fmt.Errorf(cidrParseErrFmt, "10.256.0.0/16", fmt.Errorf("invalid CIDR address: %s", "10.256.0.0/16"))},
 	// Misaligned CIDR
 	{&MasqConfig{NonMasqueradeCIDRs: []string{"10.0.0.1/8"}}, fmt.Errorf(cidrAlignErrFmt, "10.0.0.1/8", "10.0.0.1", "10.0.0.0/8")},
+	// invalid SNAT target IP
+	{&MasqConfig{SnatTarget: "foo"}, fmt.Errorf(ipParseErrFmt, "foo")},
 }
 
 // tests the MasqConfig.validate method
@@ -120,10 +131,12 @@ nonMasqueradeCIDRs:
   - 10.0.0.0/8
 masqLinkLocal: true
 resyncInterval: 5s
+snatTarget: 192.168.0.42
 `}, nil, &MasqConfig{
 		NonMasqueradeCIDRs: []string{"172.16.0.0/12", "10.0.0.0/8"},
 		MasqLinkLocal:      true,
-		ResyncInterval:     Duration(5 * time.Second)}},
+		ResyncInterval:     Duration(5 * time.Second),
+		SnatTarget:         "192.168.0.42"}},
 
 	{"valid yaml file, just nonMasqueradeCIDRs", fakefs.StringFS{File: `
 nonMasqueradeCIDRs:
@@ -147,6 +160,13 @@ resyncInterval: 5m
 		MasqLinkLocal:      NewMasqConfigNoReservedRanges().MasqLinkLocal,
 		ResyncInterval:     Duration(5 * time.Minute)}},
 
+	{"valid yaml file, just snatTarget", fakefs.StringFS{File: `
+snatTarget: 192.168.0.42
+`}, nil, &MasqConfig{
+		NonMasqueradeCIDRs: NewMasqConfigNoReservedRanges().NonMasqueradeCIDRs,
+		MasqLinkLocal:      NewMasqConfigNoReservedRanges().MasqLinkLocal,
+		ResyncInterval:     NewMasqConfigNoReservedRanges().ResyncInterval,
+		SnatTarget:         "192.168.0.42"}},
 	// invalid yaml
 	{"invalid yaml file", fakefs.StringFS{File: `*`}, fmt.Errorf("yaml: did not find expected alphabetic or numeric character"), NewMasqConfigNoReservedRanges()},
 
@@ -293,6 +313,16 @@ COMMIT
 -A ` + string(masqChain) + ` ` + nonMasqRuleComment + ` -d 169.254.0.0/16 -j RETURN
 -A ` + string(masqChain) + ` ` + nonMasqRuleComment + ` -d 10.244.0.0/16 -j RETURN
 -A ` + string(masqChain) + ` ` + masqRuleComment + ` -j MASQUERADE
+COMMIT
+`,
+		},
+		{
+			desc: "config has snatTarget: 192.168.0.42",
+			cfg:  &MasqConfig{SnatTarget: "192.168.0.42"},
+			want: `*nat
+:` + string(masqChain) + ` - [0:0]
+-A ` + string(masqChain) + ` ` + nonMasqRuleComment + ` -d 169.254.0.0/16 -j RETURN
+-A ` + string(masqChain) + ` ` + snatRuleComment + ` -j SNAT --to-source 192.168.0.42
 COMMIT
 `,
 		},
