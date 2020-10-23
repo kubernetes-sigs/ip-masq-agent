@@ -19,7 +19,7 @@ BIN := ip-masq-agent
 PKG := k8s.io/ip-masq-agent
 
 # Where to push the docker image.
-REGISTRY ?= staging-k8s.gcr.io
+REGISTRY ?= gcr.io/k8s-staging-networking
 
 # Which architecture to build - see $(ALL_ARCH) for options.
 ARCH ?= amd64
@@ -130,11 +130,7 @@ container-name:
 
 push: .push-$(DOTFILE_IMAGE) push-name
 .push-$(DOTFILE_IMAGE): .container-$(DOTFILE_IMAGE)
-ifeq ($(findstring gcr.io,$(REGISTRY)),gcr.io)
-	@gcloud docker -- push $(IMAGE):$(VERSION)
-else
 	@docker push $(IMAGE):$(VERSION)
-endif
 	@docker images -q $(IMAGE):$(VERSION) > $@
 
 push-name:

@@ -4,12 +4,14 @@ The ip-masq-agent is released on an as-needed basis. The process is as follows:
 
 1. Someone must file an issue proposing a new release with a changelog since the last release.
 1. All [OWNERS](OWNERS) must LGTM this release.
-1. An OWNER (who must have push access to the `google_containers` project):
+1. An OWNER (who must have push access to the `k8s-staging-networking` project):
     1. Tags the commit approved for release with `git tag -s vx.x.x`. The `vx.x.x` is semver with a leading `v`.
-    1. Runs `make push`, to build and push the container image for the release to `google_containers`.
+    1. Runs `make push`, to build and push the container image for the release to `k8s-staging-networking`.
     1. Pushes the tag with `git push vx.x.x`. 
 1. The release issue is closed.
 1. An announcement email is sent to `kubernetes-dev@googlegroups.com` with the subject `[ANNOUNCE] ip-masq-agent vx.x.x is released`.
+1. Propose a PR to k8s.io/k8s.gcr.io/images/k8s-staging-networking/images.yaml to add the new image to be promoted.
+1. Look for the final image to be available at k8s.gcr.io/networking/ip-masq-agent-*
 
 Example:
 
@@ -28,9 +30,14 @@ $ git tag -am "v2.0.1" v2.0.1
 
 $ make container TAG=v2.0.1
 <...lots of output...>
-container: gcr.io/google-containers/ip-masq-agent-amd64:v2.0.1
+container: gcr.io/k8s-staging-networking/ip-masq-agent-amd64:v2.0.1
 
-$ gcloud docker -- push gcr.io/google-containers/ip-masq-agent-amd64:v2.0.1
+$ gcloud docker -- push gcr.io/k8s-staging-networking/ip-masq-agent-amd64:v2.0.1
 <...lots of output...>
 v2.0.1: digest: sha256:504833aedf3f14379e73296240ed44d54aecd4c02367b004452dfeca2465e5bf size: 950
+
+<Merge a PR that adds a line of the form
+  "sha256:504833aedf3f14379e73296240ed44d54aecd4c02367b004452dfeca2465e5bf": ["v2.0.1"]
+to k8s.io/k8s.gcr.io/images/k8s-staging-networking/images.yaml in the github repository at
+https://github.com/kubernetes/k8s.io>
 ```
