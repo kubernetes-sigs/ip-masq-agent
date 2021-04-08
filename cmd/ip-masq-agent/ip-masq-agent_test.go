@@ -104,7 +104,7 @@ var validateConfigTests = []struct {
 	// Misaligned CIDR
 	{&MasqConfig{NonMasqueradeCIDRs: []string{"10.0.0.1/8"}}, fmt.Errorf(cidrAlignErrFmt, "10.0.0.1/8", "10.0.0.1", "10.0.0.0/8")},
 	// invalid SNAT target IP
-	{&MasqConfig{SnatTarget: "foo"}, fmt.Errorf(ipParseErrFmt, "foo")},
+	{&MasqConfig{SnatTarget: "foo"}, fmt.Errorf("SnatTarget is not a valid IP (%q)", "foo")},
 }
 
 // tests the MasqConfig.validate method

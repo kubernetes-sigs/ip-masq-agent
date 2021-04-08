@@ -243,10 +243,8 @@ func (c *MasqConfig) validate() error {
 		}
 	}
 	// check if SNAT target is a valid ip
-	if c.SnatTarget != "" {
-		if err := validateIP(c.SnatTarget); err != nil {
-			return err
-		}
+	if c.SnatTarget != "" && net.ParseIP(c.SnatTarget) == nil {
+		return fmt.Errorf("SnatTarget is not a valid IP (%q)", c.SnatTarget)
 	}
 	return nil
 }
@@ -263,16 +261,6 @@ func validateCIDR(cidr string) error {
 	// alignment test
 	if !ip.Equal(ipnet.IP) {
 		return fmt.Errorf(cidrAlignErrFmt, cidr, ip, ipnet.String())
-	}
-	return nil
-}
-
-const ipParseErrFmt = "IP %q could not be parsed"
-
-func validateIP(ip string) error {
-	// parse test
-	if net.ParseIP(ip) == nil {
-		return fmt.Errorf(ipParseErrFmt, ip)
 	}
 	return nil
 }
