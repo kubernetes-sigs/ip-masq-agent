@@ -50,9 +50,10 @@ func NewFakeMasqDaemon() *MasqDaemon {
 // noMasqueradeAllReservedRangesFlag is false.
 func NewMasqConfigNoReservedRanges() *MasqConfig {
 	return &MasqConfig{
-		NonMasqueradeCIDRs: []string{"10.0.0.0/8", "172.16.0.0/12", "192.168.0.0/16"},
-		MasqLinkLocal:      false,
-		ResyncInterval:     Duration(60 * time.Second),
+		NonMasqueradeCIDRs:       []string{"10.0.0.0/8", "172.16.0.0/12", "192.168.0.0/16"},
+		MasqueradeExceptionCIDRS: []string{},
+		MasqLinkLocal:            false,
+		ResyncInterval:           Duration(60 * time.Second),
 	}
 }
 
@@ -72,6 +73,30 @@ func NewMasqConfigWithReservedRanges() *MasqConfig {
 			"198.51.100.0/24",
 			"203.0.113.0/24",
 			"240.0.0.0/4"},
+		MasqLinkLocal:  false,
+		ResyncInterval: Duration(60 * time.Second),
+	}
+}
+
+// Returns a MasqConfig with config values that are the same as the default values when the
+// noMasqueradeAllReservedRangesFlag is true also including exception to masquerade local subranges.
+func NewMasqConfigWithReservedRangesAndExceptionsCIDRs() *MasqConfig {
+	return &MasqConfig{
+		NonMasqueradeCIDRs: []string{
+			"10.0.0.0/8",
+			"172.16.0.0/12",
+			"192.168.0.0/16",
+			"100.64.0.0/10",
+			"192.0.0.0/24",
+			"192.0.2.0/24",
+			"192.88.99.0/24",
+			"198.18.0.0/15",
+			"198.51.100.0/24",
+			"203.0.113.0/24",
+			"240.0.0.0/4"},
+		MasqueradeExceptionCIDRS: []string{
+			"10.10.0.0/24",
+			"192.168.0.0/24"},
 		MasqLinkLocal:  false,
 		ResyncInterval: Duration(60 * time.Second),
 	}
@@ -121,31 +146,35 @@ nonMasqueradeCIDRs:
 masqLinkLocal: true
 resyncInterval: 5s
 `}, nil, &MasqConfig{
-		NonMasqueradeCIDRs: []string{"172.16.0.0/12", "10.0.0.0/8"},
-		MasqLinkLocal:      true,
-		ResyncInterval:     Duration(5 * time.Second)}},
+		NonMasqueradeCIDRs:       []string{"172.16.0.0/12", "10.0.0.0/8"},
+		MasqueradeExceptionCIDRS: []string{},
+		MasqLinkLocal:            true,
+		ResyncInterval:           Duration(5 * time.Second)}},
 
 	{"valid yaml file, just nonMasqueradeCIDRs", fakefs.StringFS{File: `
 nonMasqueradeCIDRs:
   - 192.168.0.0/16
 `}, nil, &MasqConfig{
-		NonMasqueradeCIDRs: []string{"192.168.0.0/16"},
-		MasqLinkLocal:      NewMasqConfigNoReservedRanges().MasqLinkLocal,
-		ResyncInterval:     NewMasqConfigNoReservedRanges().ResyncInterval}},
+		NonMasqueradeCIDRs:       []string{"192.168.0.0/16"},
+		MasqueradeExceptionCIDRS: []string{},
+		MasqLinkLocal:            NewMasqConfigNoReservedRanges().MasqLinkLocal,
+		ResyncInterval:           NewMasqConfigNoReservedRanges().ResyncInterval}},
 
 	{"valid yaml file, just masqLinkLocal", fakefs.StringFS{File: `
 masqLinkLocal: true
 `}, nil, &MasqConfig{
-		NonMasqueradeCIDRs: NewMasqConfigNoReservedRanges().NonMasqueradeCIDRs,
-		MasqLinkLocal:      true,
-		ResyncInterval:     NewMasqConfigNoReservedRanges().ResyncInterval}},
+		NonMasqueradeCIDRs:       NewMasqConfigNoReservedRanges().NonMasqueradeCIDRs,
+		MasqueradeExceptionCIDRS: []string{},
+		MasqLinkLocal:            true,
+		ResyncInterval:           NewMasqConfigNoReservedRanges().ResyncInterval}},
 
 	{"valid yaml file, just resyncInterval", fakefs.StringFS{File: `
 resyncInterval: 5m
 `}, nil, &MasqConfig{
-		NonMasqueradeCIDRs: NewMasqConfigNoReservedRanges().NonMasqueradeCIDRs,
-		MasqLinkLocal:      NewMasqConfigNoReservedRanges().MasqLinkLocal,
-		ResyncInterval:     Duration(5 * time.Minute)}},
+		NonMasqueradeCIDRs:       NewMasqConfigNoReservedRanges().NonMasqueradeCIDRs,
+		MasqueradeExceptionCIDRS: []string{},
+		MasqLinkLocal:            NewMasqConfigNoReservedRanges().MasqLinkLocal,
+		ResyncInterval:           Duration(5 * time.Minute)}},
 
 	// invalid yaml
 	{"invalid yaml file", fakefs.StringFS{File: `*`}, fmt.Errorf("yaml: did not find expected alphabetic or numeric character"), NewMasqConfigNoReservedRanges()},
@@ -159,9 +188,10 @@ resyncInterval: 5m
 }
 `},
 		nil, &MasqConfig{
-			NonMasqueradeCIDRs: []string{"172.16.0.0/12", "10.0.0.0/8"},
-			MasqLinkLocal:      true,
-			ResyncInterval:     Duration(5 * time.Second)}},
+			NonMasqueradeCIDRs:       []string{"172.16.0.0/12", "10.0.0.0/8"},
+			MasqueradeExceptionCIDRS: []string{},
+			MasqLinkLocal:            true,
+			ResyncInterval:           Duration(5 * time.Second)}},
 
 	{"valid json file, just nonMasqueradeCIDRs", fakefs.StringFS{File: `
 {
@@ -169,9 +199,21 @@ resyncInterval: 5m
 }
 `},
 		nil, &MasqConfig{
-			NonMasqueradeCIDRs: []string{"192.168.0.0/16"},
-			MasqLinkLocal:      NewMasqConfigNoReservedRanges().MasqLinkLocal,
-			ResyncInterval:     NewMasqConfigNoReservedRanges().ResyncInterval}},
+			NonMasqueradeCIDRs:       []string{"192.168.0.0/16"},
+			MasqueradeExceptionCIDRS: []string{},
+			MasqLinkLocal:            NewMasqConfigNoReservedRanges().MasqLinkLocal,
+			ResyncInterval:           NewMasqConfigNoReservedRanges().ResyncInterval}},
+
+	{"valid json file, just MasqueradeExceptionsCIDR", fakefs.StringFS{File: `
+{
+	"masqueradeExceptionCIDRs": ["10.10.0.0/24"]
+}
+`},
+		nil, &MasqConfig{
+			NonMasqueradeCIDRs:       NewMasqConfigNoReservedRanges().NonMasqueradeCIDRs,
+			MasqueradeExceptionCIDRS: []string{"10.10.0.0/24"},
+			MasqLinkLocal:            NewMasqConfigNoReservedRanges().MasqLinkLocal,
+			ResyncInterval:           NewMasqConfigNoReservedRanges().ResyncInterval}},
 
 	{"valid json file, just masqLinkLocal", fakefs.StringFS{File: `
 {
@@ -179,9 +221,10 @@ resyncInterval: 5m
 }
 `},
 		nil, &MasqConfig{
-			NonMasqueradeCIDRs: NewMasqConfigNoReservedRanges().NonMasqueradeCIDRs,
-			MasqLinkLocal:      true,
-			ResyncInterval:     NewMasqConfigNoReservedRanges().ResyncInterval}},
+			NonMasqueradeCIDRs:       NewMasqConfigNoReservedRanges().NonMasqueradeCIDRs,
+			MasqueradeExceptionCIDRS: []string{},
+			MasqLinkLocal:            true,
+			ResyncInterval:           NewMasqConfigNoReservedRanges().ResyncInterval}},
 
 	{"valid json file, just resyncInterval", fakefs.StringFS{File: `
 {
@@ -189,9 +232,10 @@ resyncInterval: 5m
 }
 `},
 		nil, &MasqConfig{
-			NonMasqueradeCIDRs: NewMasqConfigNoReservedRanges().NonMasqueradeCIDRs,
-			MasqLinkLocal:      NewMasqConfigNoReservedRanges().MasqLinkLocal,
-			ResyncInterval:     Duration(5 * time.Minute)}},
+			NonMasqueradeCIDRs:       NewMasqConfigNoReservedRanges().NonMasqueradeCIDRs,
+			MasqueradeExceptionCIDRS: []string{},
+			MasqLinkLocal:            NewMasqConfigNoReservedRanges().MasqLinkLocal,
+			ResyncInterval:           Duration(5 * time.Minute)}},
 
 	// invalid json
 	{"invalid json file", fakefs.StringFS{File: `{*`}, fmt.Errorf("invalid character '*' looking for beginning of object key string"), NewMasqConfigNoReservedRanges()},
@@ -208,9 +252,10 @@ resyncInterval: 5m
 		}
 		`},
 		nil, &MasqConfig{
-			NonMasqueradeCIDRs: []string{"172.16.0.0/12", "10.0.0.0/8", "fc00::/7"},
-			MasqLinkLocal:      true,
-			ResyncInterval:     Duration(5 * time.Second)}},
+			NonMasqueradeCIDRs:       []string{"172.16.0.0/12", "10.0.0.0/8", "fc00::/7"},
+			MasqueradeExceptionCIDRS: []string{},
+			MasqLinkLocal:            true,
+			ResyncInterval:           Duration(5 * time.Second)}},
 }
 
 // tests MasqDaemon.syncConfig
@@ -242,7 +287,7 @@ func TestSyncMasqRules(t *testing.T) {
 			want: `*nat
 :` + string(masqChain) + ` - [0:0]
 -A ` + string(masqChain) + ` ` + nonMasqRuleComment + ` -d 169.254.0.0/16 -j RETURN
--A ` + string(masqChain) + ` ` + masqRuleComment + ` -j MASQUERADE
+-A ` + string(masqChain) + ` ` + masqDefaultRuleComment + ` -j MASQUERADE
 COMMIT
 `,
 		},
@@ -255,7 +300,7 @@ COMMIT
 -A ` + string(masqChain) + ` ` + nonMasqRuleComment + ` -d 10.0.0.0/8 -j RETURN
 -A ` + string(masqChain) + ` ` + nonMasqRuleComment + ` -d 172.16.0.0/12 -j RETURN
 -A ` + string(masqChain) + ` ` + nonMasqRuleComment + ` -d 192.168.0.0/16 -j RETURN
--A ` + string(masqChain) + ` ` + masqRuleComment + ` -j MASQUERADE
+-A ` + string(masqChain) + ` ` + masqDefaultRuleComment + ` -j MASQUERADE
 COMMIT
 `,
 		},
@@ -276,7 +321,30 @@ COMMIT
 -A ` + string(masqChain) + ` ` + nonMasqRuleComment + ` -d 198.51.100.0/24 -j RETURN
 -A ` + string(masqChain) + ` ` + nonMasqRuleComment + ` -d 203.0.113.0/24 -j RETURN
 -A ` + string(masqChain) + ` ` + nonMasqRuleComment + ` -d 240.0.0.0/4 -j RETURN
--A ` + string(masqChain) + ` ` + masqRuleComment + ` -j MASQUERADE
+-A ` + string(masqChain) + ` ` + masqDefaultRuleComment + ` -j MASQUERADE
+COMMIT
+`,
+		},
+		{
+			desc: "default config not masquerading reserved ranges with some exceptions",
+			cfg:  NewMasqConfigWithReservedRangesAndExceptionsCIDRs(),
+			want: `*nat
+:` + string(masqChain) + ` - [0:0]
+-A ` + string(masqChain) + ` ` + nonMasqRuleComment + ` -d 169.254.0.0/16 -j RETURN
+-A ` + string(masqChain) + ` ` + masqExceptionRuleComment + ` -d 10.10.0.0/24 -j MASQUERADE
+-A ` + string(masqChain) + ` ` + masqExceptionRuleComment + ` -d 192.168.0.0/24 -j MASQUERADE
+-A ` + string(masqChain) + ` ` + nonMasqRuleComment + ` -d 10.0.0.0/8 -j RETURN
+-A ` + string(masqChain) + ` ` + nonMasqRuleComment + ` -d 172.16.0.0/12 -j RETURN
+-A ` + string(masqChain) + ` ` + nonMasqRuleComment + ` -d 192.168.0.0/16 -j RETURN
+-A ` + string(masqChain) + ` ` + nonMasqRuleComment + ` -d 100.64.0.0/10 -j RETURN
+-A ` + string(masqChain) + ` ` + nonMasqRuleComment + ` -d 192.0.0.0/24 -j RETURN
+-A ` + string(masqChain) + ` ` + nonMasqRuleComment + ` -d 192.0.2.0/24 -j RETURN
+-A ` + string(masqChain) + ` ` + nonMasqRuleComment + ` -d 192.88.99.0/24 -j RETURN
+-A ` + string(masqChain) + ` ` + nonMasqRuleComment + ` -d 198.18.0.0/15 -j RETURN
+-A ` + string(masqChain) + ` ` + nonMasqRuleComment + ` -d 198.51.100.0/24 -j RETURN
+-A ` + string(masqChain) + ` ` + nonMasqRuleComment + ` -d 203.0.113.0/24 -j RETURN
+-A ` + string(masqChain) + ` ` + nonMasqRuleComment + ` -d 240.0.0.0/4 -j RETURN
+-A ` + string(masqChain) + ` ` + masqDefaultRuleComment + ` -j MASQUERADE
 COMMIT
 `,
 		},
@@ -292,7 +360,7 @@ COMMIT
 :` + string(masqChain) + ` - [0:0]
 -A ` + string(masqChain) + ` ` + nonMasqRuleComment + ` -d 169.254.0.0/16 -j RETURN
 -A ` + string(masqChain) + ` ` + nonMasqRuleComment + ` -d 10.244.0.0/16 -j RETURN
--A ` + string(masqChain) + ` ` + masqRuleComment + ` -j MASQUERADE
+-A ` + string(masqChain) + ` ` + masqDefaultRuleComment + ` -j MASQUERADE
 COMMIT
 `,
 		},
@@ -328,7 +396,7 @@ func TestSyncMasqRulesIPv6(t *testing.T) {
 			want: `*nat
 :` + string(masqChain) + ` - [0:0]
 -A ` + string(masqChain) + ` ` + nonMasqRuleComment + ` -d fe80::/10 -j RETURN
--A ` + string(masqChain) + ` ` + masqRuleComment + ` -j MASQUERADE
+-A ` + string(masqChain) + ` ` + masqDefaultRuleComment + ` -j MASQUERADE
 COMMIT
 `,
 		},
@@ -344,7 +412,7 @@ COMMIT
 :` + string(masqChain) + ` - [0:0]
 -A ` + string(masqChain) + ` ` + nonMasqRuleComment + ` -d fe80::/10 -j RETURN
 -A ` + string(masqChain) + ` ` + nonMasqRuleComment + ` -d fc00::/7 -j RETURN
--A ` + string(masqChain) + ` ` + masqRuleComment + ` -j MASQUERADE
+-A ` + string(masqChain) + ` ` + masqDefaultRuleComment + ` -j MASQUERADE
 COMMIT
 `,
 		},
@@ -353,7 +421,7 @@ COMMIT
 			cfg:  &MasqConfig{MasqLinkLocalIPv6: true},
 			want: `*nat
 :` + string(masqChain) + ` - [0:0]
--A ` + string(masqChain) + ` ` + masqRuleComment + ` -j MASQUERADE
+-A ` + string(masqChain) + ` ` + masqDefaultRuleComment + ` -j MASQUERADE
 COMMIT
 `,
 		},

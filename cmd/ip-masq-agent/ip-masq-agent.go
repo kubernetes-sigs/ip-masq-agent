@@ -55,10 +55,11 @@ var (
 
 // MasqConfig object
 type MasqConfig struct {
-	NonMasqueradeCIDRs []string `json:"nonMasqueradeCIDRs"`
-	MasqLinkLocal      bool     `json:"masqLinkLocal"`
-	MasqLinkLocalIPv6  bool     `json:"masqLinkLocalIPv6"`
-	ResyncInterval     Duration `json:"resyncInterval"`
+	MasqueradeExceptionCIDRS []string `json:"masqueradeExceptionCIDRs"`
+	NonMasqueradeCIDRs       []string `json:"nonMasqueradeCIDRs"`
+	MasqLinkLocal            bool     `json:"masqLinkLocal"`
+	MasqLinkLocalIPv6        bool     `json:"masqLinkLocalIPv6"`
+	ResyncInterval           Duration `json:"resyncInterval"`
 }
 
 // Duration - Go's JSON unmarshaler can't handle time.ParseDuration syntax when unmarshaling into time.Duration, so we do it here
@@ -97,10 +98,11 @@ func NewMasqConfig(masqAllReservedRanges bool) *MasqConfig {
 	}
 
 	return &MasqConfig{
-		NonMasqueradeCIDRs: nonMasq,
-		MasqLinkLocal:      false,
-		MasqLinkLocalIPv6:  false,
-		ResyncInterval:     Duration(60 * time.Second),
+		NonMasqueradeCIDRs:       nonMasq,
+		MasqLinkLocal:            false,
+		MasqLinkLocalIPv6:        false,
+		MasqueradeExceptionCIDRS: []string{},
+		ResyncInterval:           Duration(60 * time.Second),
 	}
 }
 
@@ -188,6 +190,7 @@ func (m *MasqDaemon) syncConfig(fs fakefs.FileSystem) error {
 	// check if file exists
 	if _, err = fs.Stat(configPath); os.IsNotExist(err) {
 		// file does not exist, use defaults
+		m.config.MasqueradeExceptionCIDRS = c.MasqueradeExceptionCIDRS
 		m.config.NonMasqueradeCIDRs = c.NonMasqueradeCIDRs
 		m.config.MasqLinkLocal = c.MasqLinkLocal
 		m.config.MasqLinkLocalIPv6 = c.MasqLinkLocalIPv6
@@ -224,13 +227,14 @@ func (m *MasqDaemon) syncConfig(fs fakefs.FileSystem) error {
 }
 
 func (c *MasqConfig) validate() error {
-	// limit to 64 CIDRs (excluding link-local) to protect against really bad mistakes
-	n := len(c.NonMasqueradeCIDRs)
-	if n > 64 {
-		return fmt.Errorf("the daemon can only accept up to 64 CIDRs (excluding link-local), but got %d CIDRs (excluding link local)", n)
+	// limit to 64 CIDRs for each list (excluding link-local) to protect against really bad mistakes
+	nonMasquerade := len(c.NonMasqueradeCIDRs)
+	masqueradeExceptions := len(c.MasqueradeExceptionCIDRS)
+	if nonMasquerade > 64 || masqueradeExceptions > 64 {
+		return fmt.Errorf("the daemon can only accept up to 64 CIDRs for each list (excluding link-local), but got %d CIDRs for non masquerade and %d CIDRs for masquerade excecptions (excluding link local)", nonMasquerade, masqueradeExceptions)
 	}
 	// check CIDRs are valid
-	for _, cidr := range c.NonMasqueradeCIDRs {
+	for _, cidr := range append(c.NonMasqueradeCIDRs, c.MasqueradeExceptionCIDRS...) {
 		if err := validateCIDR(cidr); err != nil {
 			return err
 		}
@@ -277,6 +281,13 @@ func (m *MasqDaemon) syncMasqRules() error {
 		writeNonMasqRule(lines, linkLocalCIDR)
 	}
 
+	// masquerade exception local-traffic CIDRs
+	for _, cidr := range m.config.MasqueradeExceptionCIDRS {
+		if !isIPv6CIDR(cidr) {
+			writeMasqRule(lines, cidr)
+		}
+	}
+
 	// non-masquerade for user-provided CIDRs
 	for _, cidr := range m.config.NonMasqueradeCIDRs {
 		if !isIPv6CIDR(cidr) {
@@ -285,7 +296,7 @@ func (m *MasqDaemon) syncMasqRules() error {
 	}
 
 	// masquerade all other traffic that is not bound for a --dst-type LOCAL destination
-	writeMasqRule(lines)
+	writeMasqRule(lines, "")
 
 	writeLine(lines, "COMMIT")
 
@@ -318,6 +329,13 @@ func (m *MasqDaemon) syncMasqRulesIPv6() error {
 			writeNonMasqRule(lines6, linkLocalCIDRIPv6)
 		}
 
+		// masquerade exception local-traffic CIDRs
+		for _, cidr := range m.config.MasqueradeExceptionCIDRS {
+			if isIPv6CIDR(cidr) {
+				writeMasqRule(lines6, cidr)
+			}
+		}
+
 		for _, cidr := range m.config.NonMasqueradeCIDRs {
 			if isIPv6CIDR(cidr) {
 				writeNonMasqRule(lines6, cidr)
@@ -325,7 +343,7 @@ func (m *MasqDaemon) syncMasqRulesIPv6() error {
 		}
 
 		// masquerade all other traffic that is not bound for a --dst-type LOCAL destination
-		writeMasqRule(lines6)
+		writeMasqRule(lines6, "")
 
 		writeLine(lines6, "COMMIT")
 
@@ -368,10 +386,15 @@ func writeNonMasqRule(lines *bytes.Buffer, cidr string) {
 	writeRule(lines, utiliptables.Append, masqChain, nonMasqRuleComment, "-d", cidr, "-j", "RETURN")
 }
 
-const masqRuleComment = `-m comment --comment "ip-masq-agent: outbound traffic is subject to MASQUERADE (must be last in chain)"`
+const masqDefaultRuleComment = `-m comment --comment "ip-masq-agent: outbound traffic is subject to MASQUERADE (must be last in chain)"`
+const masqExceptionRuleComment = `-m comment --comment "ip-masq-agent: exception local traffic subject to MASQUERADE"`
 
-func writeMasqRule(lines *bytes.Buffer) {
-	writeRule(lines, utiliptables.Append, masqChain, masqRuleComment, "-j", "MASQUERADE")
+func writeMasqRule(lines *bytes.Buffer, cidr string) {
+	if cidr == "" {
+		writeRule(lines, utiliptables.Append, masqChain, masqDefaultRuleComment, "-j", "MASQUERADE")
+	} else {
+		writeRule(lines, utiliptables.Append, masqChain, masqExceptionRuleComment, "-d", cidr, "-j", "MASQUERADE")
+	}
 }
 
 // Similar syntax to utiliptables.Interface.EnsureRule, except you don't pass a table
