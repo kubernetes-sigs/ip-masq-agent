@@ -25,7 +25,8 @@ By default, the agent is configured to treat the three private IP ranges specifi
 
 By default, the agent is configured to reload its configuration from the `/etc/config/ip-masq-agent` file in its container every 60 seconds.
 
-The agent configuration file should be written in yaml or json syntax, and may contain three optional keys:
+The agent configuration file should be written in yaml or json syntax, and may contain these optional keys:
+- `masqueradeExceptionCIDRs []string`: A list strings in CIDR notation that explicity masquerade before any other range evaluated.
 - `nonMasqueradeCIDRs []string`: A list strings in CIDR notation that specify the non-masquerade ranges.
 - `masqLinkLocal bool`: Whether to masquerade traffic to `169.254.0.0/16`. False by default.
 - `masqLinkLocalIPv6 bool`: Whether to masquerade traffic to `fe80::/10`. False by default.
