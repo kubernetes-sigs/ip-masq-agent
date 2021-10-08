@@ -63,17 +63,6 @@ Some users will want to communicate between these ranges without masquerade - fo
 
 We are trying to eliminate networking code from the Kubelet, so rather than extend the Kubelet to accept multiple CIDRs, ip-masq-agent allows you to run a DaemonSet that configures a list of CIDRs as non-masquerade.
 
-## Incubator
-
-This is a [Kubernetes Incubator project](https://github.com/kubernetes/community/blob/92d2a5555e3b048efb6793e52e57ddd73bb25b78/archive/incubator.md). The incubator team for the project is:
-
-- Current Owners: Rohit Ramkumar (@rramkumar1), Jing Ai (@jingax10)
-- Original Author: Mike Taufen (@mtaufen)
-- Sponsor: Tim Hockin (@thockin)
-- Champion: Bowei Du (@bowei)
-- SIG: sig-network
-Note: ip-masq-agent is subproject of sig-network,Incubator link not required.
-
 ## Releasing
 
 See [RELEASE](RELEASE.md).
