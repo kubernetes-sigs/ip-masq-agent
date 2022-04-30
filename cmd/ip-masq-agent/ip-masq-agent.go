@@ -27,11 +27,10 @@ import (
 	"time"
 
 	utilyaml "k8s.io/apimachinery/pkg/util/yaml"
-	"k8s.io/apiserver/pkg/util/logs"
+	"k8s.io/component-base/logs"
 	"k8s.io/ip-masq-agent/cmd/ip-masq-agent/testing/fakefs"
-	utildbus "k8s.io/kubernetes/pkg/util/dbus"
 	utiliptables "k8s.io/kubernetes/pkg/util/iptables"
-	"k8s.io/kubernetes/pkg/version/verflag"
+	"k8s.io/component-base/version/verflag"
 	utilexec "k8s.io/utils/exec"
 
 	"github.com/golang/glog"
@@ -114,11 +113,10 @@ type MasqDaemon struct {
 // NewMasqDaemon returns a MasqDaemon with default values, including an initialized utiliptables.Interface
 func NewMasqDaemon(c *MasqConfig) *MasqDaemon {
 	execer := utilexec.New()
-	dbus := utildbus.New()
-	protocolv4 := utiliptables.ProtocolIpv4
-	protocolv6 := utiliptables.ProtocolIpv6
-	iptables := utiliptables.New(execer, dbus, protocolv4)
-	ip6tables := utiliptables.New(execer, dbus, protocolv6)
+	protocolv4 := utiliptables.ProtocolIPv4
+	protocolv6 := utiliptables.ProtocolIPv6
+	iptables := utiliptables.New(execer, protocolv4)
+	ip6tables := utiliptables.New(execer, protocolv6)
 	return &MasqDaemon{
 		config:    c,
 		iptables:  iptables,

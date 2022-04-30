@@ -12,10 +12,14 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-FROM ARG_FROM
+FROM {ARG_FROM}
 
-MAINTAINER Michael Taufen <mtaufen@google.com>
+# Add the platform-specific binary.
+COPY bin/{ARG_OS}_{ARG_ARCH}/{ARG_BIN} /{ARG_BIN}
 
-ADD bin/ARG_ARCH/ARG_BIN /ARG_BIN
+# Add third-party licenses.
+COPY .licenses/ /LICENSES/
 
-ENTRYPOINT ["/ARG_BIN"]
+ENV HOME /
+
+ENTRYPOINT ["/{ARG_BIN}"]
