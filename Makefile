@@ -58,7 +58,7 @@ HTTPS_PROXY ?=
 OS := $(if $(GOOS),$(GOOS),$(shell go env GOOS))
 ARCH := $(if $(GOARCH),$(GOARCH),$(shell go env GOARCH))
 
-BASEIMAGE ?= k8s.gcr.io/build-image/debian-iptables-$(ARCH):bullseye-v1.3.0
+BASEIMAGE ?= k8s.gcr.io/build-image/debian-iptables:bullseye-v1.5.0
 
 TAG := $(VERSION)__$(OS)_$(ARCH)
 
