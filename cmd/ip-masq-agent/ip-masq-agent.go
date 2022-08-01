@@ -45,8 +45,6 @@ const (
 )
 
 var (
-	// name of nat chain for iptables masquerade rules
-	masqChain                         utiliptables.Chain
 	masqChainFlag                     = flag.String("masq-chain", "IP-MASQ-AGENT", `Name of nat chain for iptables masquerade rules.`)
 	noMasqueradeAllReservedRangesFlag = flag.Bool("nomasq-all-reserved-ranges", false, "Whether to disable masquerade for all IPv4 ranges reserved by RFCs.")
 	enableIPv6                        = flag.Bool("enable-ipv6", false, "Whether to enable IPv6.")
@@ -126,7 +124,6 @@ func NewMasqDaemon(c *MasqConfig) *MasqDaemon {
 
 func main() {
 	flag.Parse()
-	masqChain = utiliptables.Chain(*masqChainFlag)
 
 	c := NewMasqConfig(*noMasqueradeAllReservedRangesFlag)
 
@@ -136,11 +133,11 @@ func main() {
 	verflag.PrintAndExitIfRequested()
 
 	m := NewMasqDaemon(c)
-	m.Run()
+	m.Run(utiliptables.Chain(*masqChainFlag))
 }
 
 // Run ...
-func (m *MasqDaemon) Run() {
+func (m *MasqDaemon) Run(chain utiliptables.Chain) {
 	// Periodically resync to reconfigure or heal from any rule decay
 	for {
 		func() {
@@ -151,12 +148,12 @@ func (m *MasqDaemon) Run() {
 				return
 			}
 			// resync rules
-			if err := m.syncMasqRules(); err != nil {
+			if err := m.syncMasqRules(chain); err != nil {
 				glog.Errorf("error syncing masquerade rules: %v", err)
 				return
 			}
 			// resync ipv6 rules
-			if err := m.syncMasqRulesIPv6(); err != nil {
+			if err := m.syncMasqRulesIPv6(chain); err != nil {
 				glog.Errorf("error syncing masquerade rules for ipv6: %v", err)
 				return
 			}
@@ -256,34 +253,34 @@ func validateCIDR(cidr string) error {
 	return nil
 }
 
-func (m *MasqDaemon) syncMasqRules() error {
+func (m *MasqDaemon) syncMasqRules(chain utiliptables.Chain) error {
 	// make sure our custom chain for non-masquerade exists
-	m.iptables.EnsureChain(utiliptables.TableNAT, masqChain)
+	m.iptables.EnsureChain(utiliptables.TableNAT, chain)
 
-	// ensure that any non-local in POSTROUTING jumps to masqChain
-	if err := m.ensurePostroutingJump(); err != nil {
+	// ensure that any non-local in POSTROUTING jumps to chain
+	if err := m.ensurePostroutingJump(chain); err != nil {
 		return err
 	}
 
 	// build up lines to pass to iptables-restore
 	lines := bytes.NewBuffer(nil)
 	writeLine(lines, "*nat")
-	writeLine(lines, utiliptables.MakeChainLine(masqChain)) // effectively flushes masqChain atomically with rule restore
+	writeLine(lines, utiliptables.MakeChainLine(chain)) // effectively flushes chain atomically with rule restore
 
 	// link-local CIDR is always non-masquerade
 	if !m.config.MasqLinkLocal {
-		writeNonMasqRule(lines, linkLocalCIDR)
+		writeNonMasqRule(lines, linkLocalCIDR, chain)
 	}
 
 	// non-masquerade for user-provided CIDRs
 	for _, cidr := range m.config.NonMasqueradeCIDRs {
 		if !isIPv6CIDR(cidr) {
-			writeNonMasqRule(lines, cidr)
+			writeNonMasqRule(lines, cidr, chain)
 		}
 	}
 
 	// masquerade all other traffic that is not bound for a --dst-type LOCAL destination
-	writeMasqRule(lines)
+	writeMasqRule(lines, chain)
 
 	writeLine(lines, "COMMIT")
 
@@ -293,37 +290,37 @@ func (m *MasqDaemon) syncMasqRules() error {
 	return nil
 }
 
-func (m *MasqDaemon) syncMasqRulesIPv6() error {
+func (m *MasqDaemon) syncMasqRulesIPv6(chain utiliptables.Chain) error {
 	isIPv6Enabled := *enableIPv6
 
 	if isIPv6Enabled {
 		// make sure our custom chain for ipv6 non-masquerade exists
-		_, err := m.ip6tables.EnsureChain(utiliptables.TableNAT, masqChain)
+		_, err := m.ip6tables.EnsureChain(utiliptables.TableNAT, chain)
 		if err != nil {
 			return err
 		}
-		// ensure that any non-local in POSTROUTING jumps to masqChain
-		if err := m.ensurePostroutingJumpIPv6(); err != nil {
+		// ensure that any non-local in POSTROUTING jumps to chain
+		if err := m.ensurePostroutingJumpIPv6(chain); err != nil {
 			return err
 		}
 		// build up lines to pass to ip6tables-restore
 		lines6 := bytes.NewBuffer(nil)
 		writeLine(lines6, "*nat")
-		writeLine(lines6, utiliptables.MakeChainLine(masqChain)) // effectively flushes masqChain atomically with rule restore
+		writeLine(lines6, utiliptables.MakeChainLine(chain)) // effectively flushes chain atomically with rule restore
 
 		// link-local IPv6 CIDR is non-masquerade by default
 		if !m.config.MasqLinkLocalIPv6 {
-			writeNonMasqRule(lines6, linkLocalCIDRIPv6)
+			writeNonMasqRule(lines6, linkLocalCIDRIPv6, chain)
 		}
 
 		for _, cidr := range m.config.NonMasqueradeCIDRs {
 			if isIPv6CIDR(cidr) {
-				writeNonMasqRule(lines6, cidr)
+				writeNonMasqRule(lines6, cidr, chain)
 			}
 		}
 
 		// masquerade all other traffic that is not bound for a --dst-type LOCAL destination
-		writeMasqRule(lines6)
+		writeMasqRule(lines6, chain)
 
 		writeLine(lines6, "COMMIT")
 
@@ -338,38 +335,38 @@ func (m *MasqDaemon) syncMasqRulesIPv6() error {
 // Feel free to dig around in iptables and see if you can figure out exactly why; I haven't had time to fully trace how it parses and handle subcommands.
 // If you want to investigate, get the source via `git clone git://git.netfilter.org/iptables.git`, `git checkout v1.4.21` (the version I've seen this issue on,
 // though it may also happen on others), and start with `git grep XT_EXTENSION_MAXNAMELEN`.
-func postroutingJumpComment() string {
-	return fmt.Sprintf("ip-masq-agent: ensure nat POSTROUTING directs all non-LOCAL destination traffic to our custom %s chain", masqChain)
+func postroutingJumpComment(chain utiliptables.Chain) string {
+	return fmt.Sprintf("ip-masq-agent: ensure nat POSTROUTING directs all non-LOCAL destination traffic to our custom %s chain", chain)
 }
 
-func (m *MasqDaemon) ensurePostroutingJump() error {
+func (m *MasqDaemon) ensurePostroutingJump(chain utiliptables.Chain) error {
 	if _, err := m.iptables.EnsureRule(utiliptables.Append, utiliptables.TableNAT, utiliptables.ChainPostrouting,
-		"-m", "comment", "--comment", postroutingJumpComment(),
-		"-m", "addrtype", "!", "--dst-type", "LOCAL", "-j", string(masqChain)); err != nil {
-		return fmt.Errorf("failed to ensure that %s chain %s jumps to MASQUERADE: %v", utiliptables.TableNAT, masqChain, err)
+		"-m", "comment", "--comment", postroutingJumpComment(chain),
+		"-m", "addrtype", "!", "--dst-type", "LOCAL", "-j", string(chain)); err != nil {
+		return fmt.Errorf("failed to ensure that %s chain %s jumps to MASQUERADE: %v", utiliptables.TableNAT, chain, err)
 	}
 	return nil
 }
 
-func (m *MasqDaemon) ensurePostroutingJumpIPv6() error {
+func (m *MasqDaemon) ensurePostroutingJumpIPv6(chain utiliptables.Chain) error {
 	if _, err := m.ip6tables.EnsureRule(utiliptables.Append, utiliptables.TableNAT, utiliptables.ChainPostrouting,
-		"-m", "comment", "--comment", postroutingJumpComment(),
-		"-m", "addrtype", "!", "--dst-type", "LOCAL", "-j", string(masqChain)); err != nil {
-		return fmt.Errorf("failed to ensure that %s chain %s jumps to MASQUERADE: %v for ipv6", utiliptables.TableNAT, masqChain, err)
+		"-m", "comment", "--comment", postroutingJumpComment(chain),
+		"-m", "addrtype", "!", "--dst-type", "LOCAL", "-j", string(chain)); err != nil {
+		return fmt.Errorf("failed to ensure that %s chain %s jumps to MASQUERADE: %v for ipv6", utiliptables.TableNAT, chain, err)
 	}
 	return nil
 }
 
 const nonMasqRuleComment = `-m comment --comment "ip-masq-agent: local traffic is not subject to MASQUERADE"`
 
-func writeNonMasqRule(lines *bytes.Buffer, cidr string) {
-	writeRule(lines, utiliptables.Append, masqChain, nonMasqRuleComment, "-d", cidr, "-j", "RETURN")
+func writeNonMasqRule(lines *bytes.Buffer, cidr string, chain utiliptables.Chain) {
+	writeRule(lines, utiliptables.Append, chain, nonMasqRuleComment, "-d", cidr, "-j", "RETURN")
 }
 
 const masqRuleComment = `-m comment --comment "ip-masq-agent: outbound traffic is subject to MASQUERADE (must be last in chain)"`
 
-func writeMasqRule(lines *bytes.Buffer) {
-	writeRule(lines, utiliptables.Append, masqChain, masqRuleComment, "-j", "MASQUERADE")
+func writeMasqRule(lines *bytes.Buffer, chain utiliptables.Chain) {
+	writeRule(lines, utiliptables.Append, chain, masqRuleComment, "-j", "MASQUERADE")
 }
 
 // Similar syntax to utiliptables.Interface.EnsureRule, except you don't pass a table
