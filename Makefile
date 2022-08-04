@@ -207,6 +207,12 @@ $(LICENSES): | $(BUILD_DIRS)
 	./bin/tools/go-licenses save ./... --save_path=$(LICENSES)
 	chmod -R a+rx $(LICENSES)
 
+# Create a buildx builder which will create cross platform builds.
+# The default builder does not support multi-arch.
+.PHONY: buildx-setup
+buildx-setup:
+	docker buildx inspect img-builder > /dev/null || docker buildx create --name img-builder --use
+
 CONTAINER_DOTFILES = $(foreach bin,$(BINS),.container-$(subst /,_,$(REGISTRY)/$(bin))-$(TAG))
 
 # We print the container names here, rather than in CONTAINER_DOTFILES so
@@ -228,7 +234,7 @@ $(foreach bin,$(BINS),$(eval                                         \
 ))
 # This is the target definition for all container-dotfiles.
 # These are used to track build state in hidden files.
-$(CONTAINER_DOTFILES):
+$(CONTAINER_DOTFILES): buildx-setup
 	echo
 	sed                                            \
 	    -e 's|{ARG_BIN}|$(BIN)$(BIN_EXTENSION)|g'  \
@@ -236,8 +242,9 @@ $(CONTAINER_DOTFILES):
 	    -e 's|{ARG_OS}|$(OS)|g'                    \
 	    -e 's|{ARG_FROM}|$(BASEIMAGE)|g'           \
 	    Dockerfile.in > .dockerfile-$(BIN)-$(OS)_$(ARCH)
-	docker build                             \
+	docker buildx build                      \
 	    --no-cache                           \
+	    --load --platform $(OS)/$(ARCH)      \
 	    -t $(REGISTRY)/$(BIN):$(TAG)         \
 	    -f .dockerfile-$(BIN)-$(OS)_$(ARCH)  \
 	    .
