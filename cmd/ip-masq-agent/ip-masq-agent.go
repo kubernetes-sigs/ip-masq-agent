@@ -222,10 +222,10 @@ func (m *MasqDaemon) syncConfig(fs fakefs.FileSystem) error {
 }
 
 func (c *MasqConfig) validate() error {
-	// limit to 64 CIDRs (excluding link-local) to protect against really bad mistakes
+	// limit to 128 CIDRs (excluding link-local) to protect against really bad mistakes
 	n := len(c.NonMasqueradeCIDRs)
-	if n > 64 {
-		return fmt.Errorf("the daemon can only accept up to 64 CIDRs (excluding link-local), but got %d CIDRs (excluding link local)", n)
+	if n > 128 {
+		return fmt.Errorf("the daemon can only accept up to 128 CIDRs (excluding link-local), but got %d CIDRs (excluding link local)", n)
 	}
 	// check CIDRs are valid
 	for _, cidr := range c.NonMasqueradeCIDRs {
