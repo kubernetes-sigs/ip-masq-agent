@@ -55,6 +55,7 @@ var (
 // MasqConfig object
 type MasqConfig struct {
 	NonMasqueradeCIDRs []string `json:"nonMasqueradeCIDRs"`
+	CidrLimit          int      `json:"cidrLimit"`
 	MasqLinkLocal      bool     `json:"masqLinkLocal"`
 	MasqLinkLocalIPv6  bool     `json:"masqLinkLocalIPv6"`
 	ResyncInterval     Duration `json:"resyncInterval"`
@@ -97,6 +98,7 @@ func NewMasqConfig(masqAllReservedRanges bool) *MasqConfig {
 
 	return &MasqConfig{
 		NonMasqueradeCIDRs: nonMasq,
+		CidrLimit:          64,
 		MasqLinkLocal:      false,
 		MasqLinkLocalIPv6:  false,
 		ResyncInterval:     Duration(60 * time.Second),
@@ -187,6 +189,7 @@ func (m *MasqDaemon) syncConfig(fs fakefs.FileSystem) error {
 	if _, err = fs.Stat(configPath); os.IsNotExist(err) {
 		// file does not exist, use defaults
 		m.config.NonMasqueradeCIDRs = c.NonMasqueradeCIDRs
+		m.config.CidrLimit = c.CidrLimit
 		m.config.MasqLinkLocal = c.MasqLinkLocal
 		m.config.MasqLinkLocalIPv6 = c.MasqLinkLocalIPv6
 		m.config.ResyncInterval = c.ResyncInterval
@@ -224,8 +227,10 @@ func (m *MasqDaemon) syncConfig(fs fakefs.FileSystem) error {
 func (c *MasqConfig) validate() error {
 	// limit to 64 CIDRs (excluding link-local) to protect against really bad mistakes
 	n := len(c.NonMasqueradeCIDRs)
-	if n > 64 {
-		return fmt.Errorf("the daemon can only accept up to 64 CIDRs (excluding link-local), but got %d CIDRs (excluding link local)", n)
+	l := c.CidrLimit
+
+	if n > l {
+		return fmt.Errorf("the daemon can only accept up to %b CIDRs (excluding link-local), but got %d CIDRs (excluding link local)", l, n)
 	}
 	// check CIDRs are valid
 	for _, cidr := range c.NonMasqueradeCIDRs {
