@@ -25,8 +25,9 @@ By default, the agent is configured to treat the three private IP ranges specifi
 
 By default, the agent is configured to reload its configuration from the `/etc/config/ip-masq-agent` file in its container every 60 seconds.
 
-The agent configuration file should be written in yaml or json syntax, and may contain three optional keys:
+The agent configuration file should be written in yaml or json syntax, and may contain four optional keys:
 - `nonMasqueradeCIDRs []string`: A list strings in CIDR notation that specify the non-masquerade ranges.
+- `cidrLimit int`: Maximum number of nonMasqueradeCIDRs entries allowed. 64 by default.
 - `masqLinkLocal bool`: Whether to masquerade traffic to `169.254.0.0/16`. False by default.
 - `masqLinkLocalIPv6 bool`: Whether to masquerade traffic to `fe80::/10`. False by default.
 - `resyncInterval string`: The interval at which the agent attempts to reload config from disk. The syntax is any format accepted by Go's [time.ParseDuration](https://golang.org/pkg/time/#ParseDuration) function.
