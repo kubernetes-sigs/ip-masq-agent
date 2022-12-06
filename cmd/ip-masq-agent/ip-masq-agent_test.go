@@ -51,6 +51,7 @@ func NewFakeMasqDaemon() *MasqDaemon {
 func NewMasqConfigNoReservedRanges() *MasqConfig {
 	return &MasqConfig{
 		NonMasqueradeCIDRs: []string{"10.0.0.0/8", "172.16.0.0/12", "192.168.0.0/16"},
+		CidrLimit:          64,
 		MasqLinkLocal:      false,
 		ResyncInterval:     Duration(60 * time.Second),
 	}
@@ -73,6 +74,7 @@ func NewMasqConfigWithReservedRanges() *MasqConfig {
 			"203.0.113.0/24",
 			"240.0.0.0/4"},
 		MasqLinkLocal:  false,
+		CidrLimit:      64,
 		ResyncInterval: Duration(60 * time.Second),
 	}
 }
@@ -83,17 +85,17 @@ var validateConfigTests = []struct {
 	err error
 }{
 	// Empty CIDR List
-	{&MasqConfig{}, nil},
+	{&MasqConfig{CidrLimit: 64}, nil},
 	// Default Config
 	{NewMasqConfigNoReservedRanges(), nil},
 	// CIDR that doesn't match regex
-	{&MasqConfig{NonMasqueradeCIDRs: []string{"abcdefg"}}, fmt.Errorf(cidrParseErrFmt, "abcdefg", fmt.Errorf("invalid CIDR address: %s", "abcdefg"))},
+	{&MasqConfig{CidrLimit: 64, NonMasqueradeCIDRs: []string{"abcdefg"}}, fmt.Errorf(cidrParseErrFmt, "abcdefg", fmt.Errorf("invalid CIDR address: %s", "abcdefg"))},
 	// Multiple CIDRs, one doesn't match regex
-	{&MasqConfig{NonMasqueradeCIDRs: []string{"10.0.0.0/8", "abcdefg"}}, fmt.Errorf(cidrParseErrFmt, "abcdefg", fmt.Errorf("invalid CIDR address: %s", "abcdefg"))},
+	{&MasqConfig{CidrLimit: 64, NonMasqueradeCIDRs: []string{"10.0.0.0/8", "abcdefg"}}, fmt.Errorf(cidrParseErrFmt, "abcdefg", fmt.Errorf("invalid CIDR address: %s", "abcdefg"))},
 	// CIDR that matches regex but can't be parsed
-	{&MasqConfig{NonMasqueradeCIDRs: []string{"10.256.0.0/16"}}, fmt.Errorf(cidrParseErrFmt, "10.256.0.0/16", fmt.Errorf("invalid CIDR address: %s", "10.256.0.0/16"))},
+	{&MasqConfig{CidrLimit: 64, NonMasqueradeCIDRs: []string{"10.256.0.0/16"}}, fmt.Errorf(cidrParseErrFmt, "10.256.0.0/16", fmt.Errorf("invalid CIDR address: %s", "10.256.0.0/16"))},
 	// Misaligned CIDR
-	{&MasqConfig{NonMasqueradeCIDRs: []string{"10.0.0.1/8"}}, fmt.Errorf(cidrAlignErrFmt, "10.0.0.1/8", "10.0.0.1", "10.0.0.0/8")},
+	{&MasqConfig{CidrLimit: 64, NonMasqueradeCIDRs: []string{"10.0.0.1/8"}}, fmt.Errorf(cidrAlignErrFmt, "10.0.0.1/8", "10.0.0.1", "10.0.0.0/8")},
 }
 
 // tests the MasqConfig.validate method
@@ -118,17 +120,20 @@ var syncConfigTests = []struct {
 nonMasqueradeCIDRs:
   - 172.16.0.0/12
   - 10.0.0.0/8
+cidrLimit: 64
 masqLinkLocal: true
 resyncInterval: 5s
 `}, nil, &MasqConfig{
 		NonMasqueradeCIDRs: []string{"172.16.0.0/12", "10.0.0.0/8"},
 		MasqLinkLocal:      true,
+		CidrLimit:          64,
 		ResyncInterval:     Duration(5 * time.Second)}},
 
 	{"valid yaml file, just nonMasqueradeCIDRs", fakefs.StringFS{File: `
 nonMasqueradeCIDRs:
   - 192.168.0.0/16
 `}, nil, &MasqConfig{
+		CidrLimit:          64,
 		NonMasqueradeCIDRs: []string{"192.168.0.0/16"},
 		MasqLinkLocal:      NewMasqConfigNoReservedRanges().MasqLinkLocal,
 		ResyncInterval:     NewMasqConfigNoReservedRanges().ResyncInterval}},
@@ -136,6 +141,7 @@ nonMasqueradeCIDRs:
 	{"valid yaml file, just masqLinkLocal", fakefs.StringFS{File: `
 masqLinkLocal: true
 `}, nil, &MasqConfig{
+		CidrLimit:          64,
 		NonMasqueradeCIDRs: NewMasqConfigNoReservedRanges().NonMasqueradeCIDRs,
 		MasqLinkLocal:      true,
 		ResyncInterval:     NewMasqConfigNoReservedRanges().ResyncInterval}},
@@ -143,6 +149,7 @@ masqLinkLocal: true
 	{"valid yaml file, just resyncInterval", fakefs.StringFS{File: `
 resyncInterval: 5m
 `}, nil, &MasqConfig{
+		CidrLimit:          64,
 		NonMasqueradeCIDRs: NewMasqConfigNoReservedRanges().NonMasqueradeCIDRs,
 		MasqLinkLocal:      NewMasqConfigNoReservedRanges().MasqLinkLocal,
 		ResyncInterval:     Duration(5 * time.Minute)}},
@@ -159,6 +166,7 @@ resyncInterval: 5m
 }
 `},
 		nil, &MasqConfig{
+			CidrLimit:          64,
 			NonMasqueradeCIDRs: []string{"172.16.0.0/12", "10.0.0.0/8"},
 			MasqLinkLocal:      true,
 			ResyncInterval:     Duration(5 * time.Second)}},
@@ -169,6 +177,7 @@ resyncInterval: 5m
 }
 `},
 		nil, &MasqConfig{
+			CidrLimit:          64,
 			NonMasqueradeCIDRs: []string{"192.168.0.0/16"},
 			MasqLinkLocal:      NewMasqConfigNoReservedRanges().MasqLinkLocal,
 			ResyncInterval:     NewMasqConfigNoReservedRanges().ResyncInterval}},
@@ -179,6 +188,7 @@ resyncInterval: 5m
 }
 `},
 		nil, &MasqConfig{
+			CidrLimit:          64,
 			NonMasqueradeCIDRs: NewMasqConfigNoReservedRanges().NonMasqueradeCIDRs,
 			MasqLinkLocal:      true,
 			ResyncInterval:     NewMasqConfigNoReservedRanges().ResyncInterval}},
@@ -189,6 +199,7 @@ resyncInterval: 5m
 }
 `},
 		nil, &MasqConfig{
+			CidrLimit:          64,
 			NonMasqueradeCIDRs: NewMasqConfigNoReservedRanges().NonMasqueradeCIDRs,
 			MasqLinkLocal:      NewMasqConfigNoReservedRanges().MasqLinkLocal,
 			ResyncInterval:     Duration(5 * time.Minute)}},
@@ -208,6 +219,7 @@ resyncInterval: 5m
 		}
 		`},
 		nil, &MasqConfig{
+			CidrLimit:          64,
 			NonMasqueradeCIDRs: []string{"172.16.0.0/12", "10.0.0.0/8", "fc00::/7"},
 			MasqLinkLocal:      true,
 			ResyncInterval:     Duration(5 * time.Second)}},
