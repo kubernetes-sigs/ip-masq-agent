@@ -230,7 +230,7 @@ func (c *MasqConfig) validate() error {
 	l := c.CidrLimit
 
 	if n > l {
-		return fmt.Errorf("the daemon can only accept up to %b CIDRs (excluding link-local), but got %d CIDRs (excluding link local)", l, n)
+		return fmt.Errorf("the daemon can only accept up to %d CIDRs (excluding link-local), but got %d CIDRs (excluding link local)", l, n)
 	}
 	// check CIDRs are valid
 	for _, cidr := range c.NonMasqueradeCIDRs {
