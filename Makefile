@@ -62,7 +62,7 @@ BASEIMAGE ?= k8s.gcr.io/build-image/distroless-iptables:v0.1.1
 
 TAG := $(VERSION)__$(OS)_$(ARCH)
 
-BUILD_IMAGE ?= golang:1.17-alpine
+BUILD_IMAGE ?= golang:1.19.4-alpine
 
 BIN_EXTENSION :=
 ifeq ($(OS), windows)
