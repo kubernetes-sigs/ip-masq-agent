@@ -58,7 +58,7 @@ HTTPS_PROXY ?=
 OS := $(if $(GOOS),$(GOOS),$(shell go env GOOS))
 ARCH := $(if $(GOARCH),$(GOARCH),$(shell go env GOARCH))
 
-BASEIMAGE ?= k8s.gcr.io/build-image/distroless-iptables:v0.1.1
+BASEIMAGE ?= k8s.gcr.io/build-image/distroless-iptables:v0.2.0
 
 TAG := $(VERSION)__$(OS)_$(ARCH)
 
