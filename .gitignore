@@ -3,7 +3,7 @@
 /.push-*
 /.container-*
 /.dockerfile-*
-/.licenses
+/.licenses*
 /.buildx-initialized
 
 # Emacs save files
