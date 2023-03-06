@@ -11,7 +11,7 @@ The ip-masq-agent is released on an as-needed basis. The process is as follows:
 1. The release issue is closed.
 1. An announcement email is sent to `kubernetes-dev@googlegroups.com` with the subject `[ANNOUNCE] ip-masq-agent vx.x.x is released`.
 1. Propose a PR to k8s.io/k8s.gcr.io/images/k8s-staging-networking/images.yaml to add the new image to be promoted.
-1. Look for the final image to be available at k8s.gcr.io/networking/ip-masq-agent-*
+1. Look for the final image to be available at registry.k8s.io/networking/ip-masq-agent-*
 
 Example:
 
