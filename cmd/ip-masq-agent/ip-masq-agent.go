@@ -29,6 +29,7 @@ import (
 	utilyaml "k8s.io/apimachinery/pkg/util/yaml"
 	"k8s.io/component-base/logs"
 	"k8s.io/ip-masq-agent/cmd/ip-masq-agent/testing/fakefs"
+	"k8s.io/ip-masq-agent/pkg/version"
 	utiliptables "k8s.io/kubernetes/pkg/util/iptables"
 	"k8s.io/component-base/version/verflag"
 	utilexec "k8s.io/utils/exec"
@@ -128,6 +129,13 @@ func NewMasqDaemon(c *MasqConfig) *MasqDaemon {
 
 func main() {
 	flag.Parse()
+
+	glog.Infof("ip-masq-agent version: %s", version.Version)
+
+	flag.CommandLine.VisitAll(func(f *flag.Flag) {
+		glog.Infof("FLAG: --%s=%q", f.Name, f.Value)
+	})
+
 	masqChain = utiliptables.Chain(*masqChainFlag)
 
 	c := NewMasqConfig(*noMasqueradeAllReservedRangesFlag)
