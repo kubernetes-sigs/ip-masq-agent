@@ -1,0 +1,15 @@
+name: Run lint
+
+on: [ push, pull_request ]
+
+jobs:
+  lint:
+    strategy:
+      matrix:
+        platform: [ "ubuntu-latest" ]
+    runs-on: ${{ matrix.platform }}
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v3
+    - name: Lint
+      run: make lint

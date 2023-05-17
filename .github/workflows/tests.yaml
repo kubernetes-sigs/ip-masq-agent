@@ -1,0 +1,16 @@
+name: Run tests
+
+on: [ push, pull_request ]
+
+jobs:
+  test:
+    strategy:
+      matrix:
+        go-version: [ "1.19", "1.20" ]
+        platform: [ "ubuntu-latest" ]
+    runs-on: ${{ matrix.platform }}
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v3
+    - name: Test
+      run: make test GOFLAGS="-v" GO_VERSION=${{ matrix.go-version }}
