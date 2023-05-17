@@ -28,10 +28,10 @@ import (
 
 	utilyaml "k8s.io/apimachinery/pkg/util/yaml"
 	"k8s.io/component-base/logs"
+	"k8s.io/component-base/version/verflag"
 	"k8s.io/ip-masq-agent/cmd/ip-masq-agent/testing/fakefs"
 	"k8s.io/ip-masq-agent/pkg/version"
 	utiliptables "k8s.io/kubernetes/pkg/util/iptables"
-	"k8s.io/component-base/version/verflag"
 	utilexec "k8s.io/utils/exec"
 
 	"github.com/golang/glog"
@@ -351,8 +351,10 @@ func (m *MasqDaemon) syncMasqRulesIPv6() error {
 // Feel free to dig around in iptables and see if you can figure out exactly why; I haven't had time to fully trace how it parses and handle subcommands.
 // If you want to investigate, get the source via `git clone git://git.netfilter.org/iptables.git`, `git checkout v1.4.21` (the version I've seen this issue on,
 // though it may also happen on others), and start with `git grep XT_EXTENSION_MAXNAMELEN`.
+const postRoutingMasqChainCommentFormat = "\"ip-masq-agent: ensure nat POSTROUTING directs all non-LOCAL destination traffic to our custom %s chain\""
+
 func postroutingJumpComment() string {
-	return fmt.Sprintf("ip-masq-agent: ensure nat POSTROUTING directs all non-LOCAL destination traffic to our custom %s chain", masqChain)
+	return fmt.Sprintf(postRoutingMasqChainCommentFormat, masqChain)
 }
 
 func (m *MasqDaemon) ensurePostroutingJump() error {
@@ -382,7 +384,7 @@ func writeNonMasqRule(lines *bytes.Buffer, cidr string) {
 const masqRuleComment = `-m comment --comment "ip-masq-agent: outbound traffic is subject to MASQUERADE (must be last in chain)"`
 
 func writeMasqRule(lines *bytes.Buffer) {
-	writeRule(lines, utiliptables.Append, masqChain, masqRuleComment, "-j", "MASQUERADE")
+	writeRule(lines, utiliptables.Append, masqChain, masqRuleComment, "-j", "MASQUERADE", "--random-fully")
 }
 
 // Similar syntax to utiliptables.Interface.EnsureRule, except you don't pass a table
