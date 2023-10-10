@@ -28,13 +28,9 @@ v2.0.0
 
 $ git tag -am "v2.0.1" v2.0.1
 
-$ make container TAG=v2.0.1
+$ make manifest-list
 <...lots of output...>
-container: gcr.io/k8s-staging-networking/ip-masq-agent-amd64:v2.0.1
-
-$ gcloud docker -- push gcr.io/k8s-staging-networking/ip-masq-agent-amd64:v2.0.1
-<...lots of output...>
-v2.0.1: digest: sha256:504833aedf3f14379e73296240ed44d54aecd4c02367b004452dfeca2465e5bf size: 950
+Digest: sha256:504833aedf3f14379e73296240ed44d54aecd4c02367b004452dfeca2465e5bf 1556
 
 <Merge a PR that adds a line of the form
   "sha256:504833aedf3f14379e73296240ed44d54aecd4c02367b004452dfeca2465e5bf": ["v2.0.1"]
