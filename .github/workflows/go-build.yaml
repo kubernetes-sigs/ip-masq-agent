@@ -1,0 +1,54 @@
+name: go-build-ip-masq-agent
+
+on:
+  pull_request:
+  push:
+
+jobs:
+  build:
+    runs-on: ${{ matrix.platform }}
+    environment: ADVISER
+    strategy:
+      matrix:
+        include:
+          - platform: ubuntu-latest
+
+    name: Build ${{ join(matrix.platform, ',') }} ip-masq-agent
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Set up Go
+        uses: actions/setup-go@v3
+        with:
+          go-version: 1.21
+
+      - name: Build ip-masq-agent
+        run: |
+          go test ./...
+          go build -o -ip-masq-agent -v ./cmd/ip-masq-agent/ip-masq-agent.go
+
+      - name: cleanup
+        if: startsWith(github.ref, 'refs/tags/v')
+        run: |
+           git clean -f
+
+      - name: Set up QEMU
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: docker/setup-qemu-action@v2
+
+      - name: Docker login
+        if: startsWith(github.ref, 'refs/tags/v')
+        run: echo ${{ secrets.GH_TOKEN }} | docker login ghcr.io -u mabels --password-stdin
+
+      - name: Set up Docker Buildx
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: docker/setup-buildx-action@v2
+
+      - name: Run GoReleaser
+        uses: goreleaser/goreleaser-action@v4
+        if: startsWith(github.ref, 'refs/tags/v')
+        with:
+          version: latest
+          args: release --clean
+        env:
+          GITHUB_TOKEN: ${{ secrets.GH_TOKEN }}
