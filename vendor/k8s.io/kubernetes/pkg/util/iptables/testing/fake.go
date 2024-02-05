@@ -20,312 +20,109 @@ import (
 	"bytes"
 	"fmt"
 	"strings"
-	"time"
 
-	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/kubernetes/pkg/util/iptables"
 )
 
-// FakeIPTables is no-op implementation of iptables Interface.
+const (
+	Destination = "-d "
+	Source      = "-s "
+	DPort       = "--dport "
+	Protocol    = "-p "
+	Jump        = "-j "
+	Reject      = "REJECT"
+	ToDest      = "--to-destination "
+	Recent      = "recent "
+	MatchSet    = "--match-set "
+)
+
+type Rule map[string]string
+
+// no-op implementation of iptables Interface
 type FakeIPTables struct {
-	hasRandomFully bool
-	protocol       iptables.Protocol
-
-	Dump *IPTablesDump
+	Lines []byte
 }
 
-// NewFake returns a no-op iptables.Interface
 func NewFake() *FakeIPTables {
-	f := &FakeIPTables{
-		protocol: iptables.ProtocolIPv4,
-		Dump: &IPTablesDump{
-			Tables: []Table{
-				{
-					Name: iptables.TableNAT,
-					Chains: []Chain{
-						{Name: iptables.ChainPrerouting},
-						{Name: iptables.ChainInput},
-						{Name: iptables.ChainOutput},
-						{Name: iptables.ChainPostrouting},
-					},
-				},
-				{
-					Name: iptables.TableFilter,
-					Chains: []Chain{
-						{Name: iptables.ChainInput},
-						{Name: iptables.ChainForward},
-						{Name: iptables.ChainOutput},
-					},
-				},
-				{
-					Name:   iptables.TableMangle,
-					Chains: []Chain{},
-				},
-			},
-		},
-	}
-
-	return f
+	return &FakeIPTables{}
 }
 
-// NewIPv6Fake returns a no-op iptables.Interface with IsIPv6() == true
-func NewIPv6Fake() *FakeIPTables {
-	f := NewFake()
-	f.protocol = iptables.ProtocolIPv6
-	return f
+func (*FakeIPTables) GetVersion() (string, error) {
+	return "0.0.0", nil
 }
 
-// SetHasRandomFully sets f's return value for HasRandomFully()
-func (f *FakeIPTables) SetHasRandomFully(can bool) *FakeIPTables {
-	f.hasRandomFully = can
-	return f
+func (*FakeIPTables) EnsureChain(table iptables.Table, chain iptables.Chain) (bool, error) {
+	return true, nil
 }
 
-// EnsureChain is part of iptables.Interface
-func (f *FakeIPTables) EnsureChain(table iptables.Table, chain iptables.Chain) (bool, error) {
-	t, err := f.Dump.GetTable(table)
-	if err != nil {
-		return false, err
-	}
-	if c, _ := f.Dump.GetChain(table, chain); c != nil {
-		return true, nil
-	}
-	t.Chains = append(t.Chains, Chain{Name: chain})
-	return false, nil
-}
-
-// FlushChain is part of iptables.Interface
-func (f *FakeIPTables) FlushChain(table iptables.Table, chain iptables.Chain) error {
-	if c, _ := f.Dump.GetChain(table, chain); c != nil {
-		c.Rules = nil
-	}
+func (*FakeIPTables) FlushChain(table iptables.Table, chain iptables.Chain) error {
 	return nil
 }
 
-// DeleteChain is part of iptables.Interface
-func (f *FakeIPTables) DeleteChain(table iptables.Table, chain iptables.Chain) error {
-	t, err := f.Dump.GetTable(table)
-	if err != nil {
-		return err
-	}
-	for i := range t.Chains {
-		if t.Chains[i].Name == chain {
-			t.Chains = append(t.Chains[:i], t.Chains[i+1:]...)
-			return nil
-		}
-	}
+func (*FakeIPTables) DeleteChain(table iptables.Table, chain iptables.Chain) error {
 	return nil
 }
 
-// ChainExists is part of iptables.Interface
-func (f *FakeIPTables) ChainExists(table iptables.Table, chain iptables.Chain) (bool, error) {
-	if _, err := f.Dump.GetTable(table); err != nil {
-		return false, err
-	}
-	if c, _ := f.Dump.GetChain(table, chain); c != nil {
-		return true, nil
-	}
-	return false, nil
+func (*FakeIPTables) EnsureRule(position iptables.RulePosition, table iptables.Table, chain iptables.Chain, args ...string) (bool, error) {
+	return true, nil
 }
 
-// EnsureRule is part of iptables.Interface
-func (f *FakeIPTables) EnsureRule(position iptables.RulePosition, table iptables.Table, chain iptables.Chain, args ...string) (bool, error) {
-	c, err := f.Dump.GetChain(table, chain)
-	if err != nil {
-		return false, err
-	}
-
-	rule := "-A " + string(chain) + " " + strings.Join(args, " ")
-	for _, r := range c.Rules {
-		if r.Raw == rule {
-			return true, nil
-		}
-	}
-
-	parsed, err := ParseRule(rule, false)
-	if err != nil {
-		return false, err
-	}
-
-	if position == iptables.Append {
-		c.Rules = append(c.Rules, parsed)
-	} else {
-		c.Rules = append([]*Rule{parsed}, c.Rules...)
-	}
-	return false, nil
-}
-
-// DeleteRule is part of iptables.Interface
-func (f *FakeIPTables) DeleteRule(table iptables.Table, chain iptables.Chain, args ...string) error {
-	c, err := f.Dump.GetChain(table, chain)
-	if err != nil {
-		return err
-	}
-
-	rule := "-A " + string(chain) + " " + strings.Join(args, " ")
-	for i, r := range c.Rules {
-		if r.Raw == rule {
-			c.Rules = append(c.Rules[:i], c.Rules[i+1:]...)
-			break
-		}
-	}
+func (*FakeIPTables) DeleteRule(table iptables.Table, chain iptables.Chain, args ...string) error {
 	return nil
 }
 
-// IsIPv6 is part of iptables.Interface
-func (f *FakeIPTables) IsIPv6() bool {
-	return f.protocol == iptables.ProtocolIPv6
+func (*FakeIPTables) IsIpv6() bool {
+	return false
 }
 
-// Protocol is part of iptables.Interface
-func (f *FakeIPTables) Protocol() iptables.Protocol {
-	return f.protocol
+func (f *FakeIPTables) Save(table iptables.Table) ([]byte, error) {
+	lines := make([]byte, len(f.Lines))
+	copy(lines, f.Lines)
+	return lines, nil
 }
 
-func (f *FakeIPTables) saveTable(table iptables.Table, buffer *bytes.Buffer) error {
-	t, err := f.Dump.GetTable(table)
-	if err != nil {
-		return err
-	}
-
-	fmt.Fprintf(buffer, "*%s\n", table)
-	for _, c := range t.Chains {
-		fmt.Fprintf(buffer, ":%s - [%d:%d]\n", c.Name, c.Packets, c.Bytes)
-	}
-	for _, c := range t.Chains {
-		for _, r := range c.Rules {
-			fmt.Fprintf(buffer, "%s\n", r.Raw)
-		}
-	}
-	fmt.Fprintf(buffer, "COMMIT\n")
-	return nil
-}
-
-// SaveInto is part of iptables.Interface
 func (f *FakeIPTables) SaveInto(table iptables.Table, buffer *bytes.Buffer) error {
-	if table == "" {
-		// As a secret extension to the API, FakeIPTables treats table="" as
-		// meaning "all tables"
-		for i := range f.Dump.Tables {
-			err := f.saveTable(f.Dump.Tables[i].Name, buffer)
-			if err != nil {
-				return err
-			}
-		}
-		return nil
-	}
-
-	return f.saveTable(table, buffer)
+	buffer.Write(f.Lines)
+	return nil
 }
 
-// This is not a complete list but it's enough to pass the unit tests
-var builtinTargets = sets.NewString("ACCEPT", "DROP", "RETURN", "REJECT", "DNAT", "SNAT", "MASQUERADE", "MARK")
+func (*FakeIPTables) Restore(table iptables.Table, data []byte, flush iptables.FlushFlag, counters iptables.RestoreCountersFlag) error {
+	return nil
+}
 
-func (f *FakeIPTables) restoreTable(newDump *IPTablesDump, newTable *Table, flush iptables.FlushFlag, counters iptables.RestoreCountersFlag) error {
-	oldTable, err := f.Dump.GetTable(newTable.Name)
-	if err != nil {
-		return err
+func (f *FakeIPTables) RestoreAll(data []byte, flush iptables.FlushFlag, counters iptables.RestoreCountersFlag) error {
+	f.Lines = data
+	return nil
+}
+func (*FakeIPTables) AddReloadFunc(reloadFunc func()) {}
+
+func (*FakeIPTables) Destroy() {}
+
+func getToken(line, separator string) string {
+	tokens := strings.Split(line, separator)
+	if len(tokens) == 2 {
+		return strings.Split(tokens[1], " ")[0]
 	}
+	return ""
+}
 
-	backupChains := make([]Chain, len(oldTable.Chains))
-	copy(backupChains, oldTable.Chains)
-
-	// Update internal state
-	if flush == iptables.FlushTables {
-		oldTable.Chains = make([]Chain, 0, len(newTable.Chains))
-	}
-	for _, newChain := range newTable.Chains {
-		oldChain, _ := f.Dump.GetChain(newTable.Name, newChain.Name)
-		switch {
-		case oldChain == nil && newChain.Deleted:
-			// no-op
-		case oldChain == nil && !newChain.Deleted:
-			oldTable.Chains = append(oldTable.Chains, newChain)
-		case oldChain != nil && newChain.Deleted:
-			_ = f.DeleteChain(newTable.Name, newChain.Name)
-		case oldChain != nil && !newChain.Deleted:
-			// replace old data with new
-			oldChain.Rules = newChain.Rules
-			if counters == iptables.RestoreCounters {
-				oldChain.Packets = newChain.Packets
-				oldChain.Bytes = newChain.Bytes
-			}
-		}
-	}
-
-	// Now check that all old/new jumps are valid
-	for _, chain := range oldTable.Chains {
-		for _, rule := range chain.Rules {
-			if rule.Jump == nil {
-				continue
-			}
-			if builtinTargets.Has(rule.Jump.Value) {
-				continue
-			}
-
-			jumpedChain, _ := f.Dump.GetChain(oldTable.Name, iptables.Chain(rule.Jump.Value))
-			if jumpedChain == nil {
-				newChain, _ := newDump.GetChain(oldTable.Name, iptables.Chain(rule.Jump.Value))
-				if newChain != nil {
-					// rule is an old rule that jumped to a chain which
-					// was deleted by newDump.
-					oldTable.Chains = backupChains
-					return fmt.Errorf("deleted chain %q is referenced by existing rules", newChain.Name)
-				} else {
-					// rule is a new rule that jumped to a chain that was
-					// neither created nor pre-existing
-					oldTable.Chains = backupChains
-					return fmt.Errorf("rule %q jumps to a non-existent chain", rule.Raw)
+// GetChain returns a list of rules for the given chain.
+// The chain name must match exactly.
+// The matching is pretty dumb, don't rely on it for anything but testing.
+func (f *FakeIPTables) GetRules(chainName string) (rules []Rule) {
+	for _, l := range strings.Split(string(f.Lines), "\n") {
+		if strings.Contains(l, fmt.Sprintf("-A %v", chainName)) {
+			newRule := Rule(map[string]string{})
+			for _, arg := range []string{Destination, Source, DPort, Protocol, Jump, ToDest, Recent, MatchSet} {
+				tok := getToken(l, arg)
+				if tok != "" {
+					newRule[arg] = tok
 				}
 			}
+			rules = append(rules, newRule)
 		}
 	}
-
-	return nil
-}
-
-// Restore is part of iptables.Interface
-func (f *FakeIPTables) Restore(table iptables.Table, data []byte, flush iptables.FlushFlag, counters iptables.RestoreCountersFlag) error {
-	dump, err := ParseIPTablesDump(string(data))
-	if err != nil {
-		return err
-	}
-
-	newTable, err := dump.GetTable(table)
-	if err != nil {
-		return err
-	}
-
-	return f.restoreTable(dump, newTable, flush, counters)
-}
-
-// RestoreAll is part of iptables.Interface
-func (f *FakeIPTables) RestoreAll(data []byte, flush iptables.FlushFlag, counters iptables.RestoreCountersFlag) error {
-	dump, err := ParseIPTablesDump(string(data))
-	if err != nil {
-		return err
-	}
-
-	for i := range dump.Tables {
-		err = f.restoreTable(dump, &dump.Tables[i], flush, counters)
-		if err != nil {
-			return err
-		}
-	}
-	return nil
-}
-
-// Monitor is part of iptables.Interface
-func (f *FakeIPTables) Monitor(canary iptables.Chain, tables []iptables.Table, reloadFunc func(), interval time.Duration, stopCh <-chan struct{}) {
-}
-
-// HasRandomFully is part of iptables.Interface
-func (f *FakeIPTables) HasRandomFully() bool {
-	return f.hasRandomFully
-}
-
-func (f *FakeIPTables) Present() bool {
-	return true
+	return
 }
 
 var _ = iptables.Interface(&FakeIPTables{})
