@@ -14,6 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
+//nolint:errcheck
 package main
 
 import (
@@ -358,8 +359,8 @@ COMMIT
 			}
 			buf := bytes.NewBuffer(nil)
 			fipt.SaveInto("nat", buf)
-			if string(buf.Bytes()) != string(tt.want) {
-				t.Errorf("syncMasqRules wrote %q, want %q", string(buf.Bytes()), tt.want)
+			if buf.String() != tt.want {
+				t.Errorf("syncMasqRules wrote %q, want %q", buf.String(), tt.want)
 			}
 		})
 	}
@@ -432,8 +433,8 @@ COMMIT
 			}
 			buf := bytes.NewBuffer(nil)
 			fipt6.SaveInto("nat", buf)
-			if string(buf.Bytes()) != tt.want {
-				t.Errorf("syncMasqRulesIPv6 wrote %q, want %q", string(buf.Bytes()), tt.want)
+			if buf.String() != tt.want {
+				t.Errorf("syncMasqRulesIPv6 wrote %q, want %q", buf.String(), tt.want)
 			}
 		})
 	}

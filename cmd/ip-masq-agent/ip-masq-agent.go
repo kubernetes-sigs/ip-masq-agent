@@ -271,7 +271,9 @@ func validateCIDR(cidr string) error {
 
 func (m *MasqDaemon) syncMasqRules() error {
 	// make sure our custom chain for non-masquerade exists
-	m.iptables.EnsureChain(utiliptables.TableNAT, masqChain)
+	if _, err := m.iptables.EnsureChain(utiliptables.TableNAT, masqChain); err != nil {
+		return err
+	}
 
 	// ensure that any non-local in POSTROUTING jumps to masqChain
 	if err := m.ensurePostroutingJump(); err != nil {
@@ -311,8 +313,7 @@ func (m *MasqDaemon) syncMasqRulesIPv6() error {
 
 	if isIPv6Enabled {
 		// make sure our custom chain for ipv6 non-masquerade exists
-		_, err := m.ip6tables.EnsureChain(utiliptables.TableNAT, masqChain)
-		if err != nil {
+		if _, err := m.ip6tables.EnsureChain(utiliptables.TableNAT, masqChain); err != nil {
 			return err
 		}
 		// ensure that any non-local in POSTROUTING jumps to masqChain

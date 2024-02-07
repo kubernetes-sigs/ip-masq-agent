@@ -18,7 +18,6 @@ package fakefs
 
 import (
 	"errors"
-	"io/ioutil"
 	"os"
 	"time"
 )
@@ -35,7 +34,7 @@ func (DefaultFS) Stat(name string) (os.FileInfo, error) {
 	return os.Stat(name)
 }
 func (DefaultFS) ReadFile(name string) ([]byte, error) {
-	return ioutil.ReadFile(name)
+	return os.ReadFile(name)
 }
 
 // StringFS returns the string as the contents of the file
