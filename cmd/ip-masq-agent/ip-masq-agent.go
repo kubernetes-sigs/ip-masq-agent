@@ -51,6 +51,7 @@ var (
 	masqChainFlag                     = flag.String("masq-chain", "IP-MASQ-AGENT", `Name of nat chain for iptables masquerade rules.`)
 	noMasqueradeAllReservedRangesFlag = flag.Bool("nomasq-all-reserved-ranges", false, "Whether to disable masquerade for all IPv4 ranges reserved by RFCs.")
 	enableIPv6                        = flag.Bool("enable-ipv6", false, "Whether to enable IPv6.")
+	randomFully                       = flag.Bool("random-fully", true, "Whether to add --random-fully to the masquerade rule.")
 )
 
 // MasqConfig object
@@ -385,7 +386,11 @@ func writeNonMasqRule(lines *bytes.Buffer, cidr string) {
 const masqRuleComment = `-m comment --comment "ip-masq-agent: outbound traffic is subject to MASQUERADE (must be last in chain)"`
 
 func writeMasqRule(lines *bytes.Buffer) {
-	writeRule(lines, utiliptables.Append, masqChain, masqRuleComment, "-j", "MASQUERADE", "--random-fully")
+	args := []string{masqRuleComment, "-j", "MASQUERADE"}
+	if *randomFully {
+		args = append(args, "--random-fully")
+	}
+	writeRule(lines, utiliptables.Append, masqChain, args...)
 }
 
 // Similar syntax to utiliptables.Interface.EnsureRule, except you don't pass a table
