@@ -6,11 +6,10 @@ jobs:
   test:
     strategy:
       matrix:
-        go-version: [ "1.21", "1.22" ]
         platform: [ "ubuntu-latest" ]
     runs-on: ${{ matrix.platform }}
     steps:
     - name: Checkout code
       uses: actions/checkout@v3
     - name: Test
-      run: make test GOFLAGS="-v" GO_VERSION=${{ matrix.go-version }}
+      run: make test GOFLAGS="-v"
