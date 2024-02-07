@@ -1,6 +1,6 @@
 module k8s.io/ip-masq-agent
 
-go 1.21
+go 1.22
 
 require (
 	github.com/golang/glog v1.2.0
