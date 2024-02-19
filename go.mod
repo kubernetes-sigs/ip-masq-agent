@@ -4,9 +4,9 @@ go 1.22
 
 require (
 	github.com/golang/glog v1.2.0
-	k8s.io/apimachinery v0.29.1
-	k8s.io/component-base v0.29.1
-	k8s.io/kubernetes v1.29.1
+	k8s.io/apimachinery v0.29.2
+	k8s.io/component-base v0.29.2
+	k8s.io/kubernetes v1.29.2
 	k8s.io/utils v0.0.0-20230726121419-3b25d923346b
 )
 

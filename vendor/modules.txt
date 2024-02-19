@@ -128,7 +128,7 @@ gopkg.in/inf.v0
 # gopkg.in/yaml.v2 v2.4.0
 ## explicit; go 1.15
 gopkg.in/yaml.v2
-# k8s.io/apimachinery v0.29.1
+# k8s.io/apimachinery v0.29.2
 ## explicit; go 1.21
 k8s.io/apimachinery/pkg/api/resource
 k8s.io/apimachinery/pkg/apis/meta/v1
@@ -155,7 +155,7 @@ k8s.io/apimachinery/pkg/util/yaml
 k8s.io/apimachinery/pkg/version
 k8s.io/apimachinery/pkg/watch
 k8s.io/apimachinery/third_party/forked/golang/reflect
-# k8s.io/component-base v0.29.1
+# k8s.io/component-base v0.29.2
 ## explicit; go 1.21
 k8s.io/component-base/cli/flag
 k8s.io/component-base/featuregate
@@ -178,7 +178,7 @@ k8s.io/klog/v2/internal/dbg
 k8s.io/klog/v2/internal/serialize
 k8s.io/klog/v2/internal/severity
 k8s.io/klog/v2/internal/sloghandler
-# k8s.io/kubernetes v1.29.1
+# k8s.io/kubernetes v1.29.2
 ## explicit; go 1.21
 k8s.io/kubernetes/pkg/util/iptables
 k8s.io/kubernetes/pkg/util/iptables/testing
