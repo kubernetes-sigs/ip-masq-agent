@@ -1,8 +1,8 @@
-//go:build !linux
-// +build !linux
+//go:build go1.21
+// +build go1.21
 
 /*
-Copyright 2017 The Kubernetes Authors.
+Copyright 2021 The Kubernetes Authors.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -17,17 +17,15 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package iptables
+package klog
 
 import (
-	"fmt"
-	"os"
+	"log/slog"
+
+	"github.com/go-logr/logr"
 )
 
-func grabIptablesLocks(lock14filePath, lock16filePath string) (iptablesLocker, error) {
-	return nil, fmt.Errorf("iptables unsupported on this platform")
-}
-
-func grabIptablesFileLock(f *os.File) error {
-	return fmt.Errorf("iptables unsupported on this platform")
+// SetSlogLogger reconfigures klog to log through the slog logger. The logger must not be nil.
+func SetSlogLogger(logger *slog.Logger) {
+	SetLoggerWithOptions(logr.FromSlogHandler(logger.Handler()), ContextualLogger(true))
 }
