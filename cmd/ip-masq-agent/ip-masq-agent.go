@@ -31,10 +31,9 @@ import (
 	"k8s.io/component-base/version/verflag"
 	"k8s.io/ip-masq-agent/cmd/ip-masq-agent/testing/fakefs"
 	"k8s.io/ip-masq-agent/pkg/version"
+	"k8s.io/klog/v2"
 	utiliptables "k8s.io/kubernetes/pkg/util/iptables"
 	utilexec "k8s.io/utils/exec"
-
-	"github.com/golang/glog"
 )
 
 const (
@@ -129,12 +128,13 @@ func NewMasqDaemon(c *MasqConfig) *MasqDaemon {
 }
 
 func main() {
+	klog.InitFlags(nil)
 	flag.Parse()
 
-	glog.Infof("ip-masq-agent version: %s", version.Version)
+	klog.Infof("ip-masq-agent version: %s", version.Version)
 
 	flag.CommandLine.VisitAll(func(f *flag.Flag) {
-		glog.Infof("FLAG: --%s=%q", f.Name, f.Value)
+		klog.Infof("FLAG: --%s=%q", f.Name, f.Value)
 	})
 
 	masqChain = utiliptables.Chain(*masqChainFlag)
@@ -158,17 +158,17 @@ func (m *MasqDaemon) Run() {
 			defer time.Sleep(time.Duration(m.config.ResyncInterval))
 			// resync config
 			if err := m.osSyncConfig(); err != nil {
-				glog.Errorf("error syncing configuration: %v", err)
+				klog.Errorf("error syncing configuration: %v", err)
 				return
 			}
 			// resync rules
 			if err := m.syncMasqRules(); err != nil {
-				glog.Errorf("error syncing masquerade rules: %v", err)
+				klog.Errorf("error syncing masquerade rules: %v", err)
 				return
 			}
 			// resync ipv6 rules
 			if err := m.syncMasqRulesIPv6(); err != nil {
-				glog.Errorf("error syncing masquerade rules for ipv6: %v", err)
+				klog.Errorf("error syncing masquerade rules for ipv6: %v", err)
 				return
 			}
 		}()
@@ -190,7 +190,7 @@ func (m *MasqDaemon) syncConfig(fs fakefs.FileSystem) error {
 	defer func() {
 		if err == nil {
 			json, _ := utiljson.Marshal(c)
-			glog.V(2).Infof("using config: %s", string(json))
+			klog.V(2).Infof("using config: %s", string(json))
 		}
 	}()
 
@@ -202,10 +202,10 @@ func (m *MasqDaemon) syncConfig(fs fakefs.FileSystem) error {
 		m.config.MasqLinkLocal = c.MasqLinkLocal
 		m.config.MasqLinkLocalIPv6 = c.MasqLinkLocalIPv6
 		m.config.ResyncInterval = c.ResyncInterval
-		glog.V(2).Infof("no config file found at %q, using default values", configPath)
+		klog.V(2).Infof("no config file found at %q, using default values", configPath)
 		return nil
 	}
-	glog.V(2).Infof("config file found at %q", configPath)
+	klog.V(2).Infof("config file found at %q", configPath)
 
 	// file exists, read and parse file
 	yaml, err := fs.ReadFile(configPath)
