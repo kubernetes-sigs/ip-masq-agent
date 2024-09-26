@@ -30,7 +30,7 @@ ALL_PLATFORMS ?= linux/amd64 linux/arm linux/arm64 linux/ppc64le linux/s390x
 
 # The "FROM" part of the Dockerfile.  This should be a manifest-list which
 # supports all of the platforms listed in ALL_PLATFORMS.
-BASE_IMAGE ?= registry.k8s.io/build-image/distroless-iptables:v0.4.4
+BASE_IMAGE ?= registry.k8s.io/build-image/distroless-iptables:v0.6.3
 
 # Where to push the docker images.
 REGISTRY ?= gcr.io/k8s-staging-networking
@@ -55,12 +55,12 @@ MAKEFLAGS += --warn-undefined-variables
 .SUFFIXES:
 
 # Used internally.  Users should pass GOOS and/or GOARCH.
-OS := $(if $(GOOS),$(GOOS),$(shell go env GOOS))
-ARCH := $(if $(GOARCH),$(GOARCH),$(shell go env GOARCH))
+OS := $(if $(GOOS),$(GOOS),$(shell GOTOOLCHAIN=local go env GOOS))
+ARCH := $(if $(GOARCH),$(GOARCH),$(shell GOTOOLCHAIN=local go env GOARCH))
 
 TAG := $(VERSION)__$(OS)_$(ARCH)
 
-GO_VERSION := 1.22
+GO_VERSION := 1.23
 BUILD_IMAGE := golang:$(GO_VERSION)-alpine
 
 BIN_EXTENSION :=
@@ -131,7 +131,8 @@ BUILD_DIRS := bin/$(OS)_$(ARCH)                   \
               bin/tools                           \
               .go/bin/$(OS)_$(ARCH)               \
               .go/bin/$(OS)_$(ARCH)/$(OS)_$(ARCH) \
-              .go/cache
+              .go/cache                           \
+              .go/pkg
 
 # Each outbin target is just a facade for the respective stampfile target.
 # This `eval` establishes the dependencies for each.
@@ -227,7 +228,7 @@ $(LICENSES): | $(BUILD_DIRS)
 	    --env HTTP_PROXY="$(HTTP_PROXY)"       \
 	    --env HTTPS_PROXY="$(HTTPS_PROXY)"     \
 	    $(BUILD_IMAGE)                         \
-	    go install github.com/google/go-licenses
+	    go install github.com/google/go-licenses/v2
 	# The tool runs in a container because it execs `go`, which doesn't
 	# play nicely with CI.  The tool also wants its output dir to not
 	# exist, so we can't just volume mount $(LICENSES).
