@@ -1,6 +1,6 @@
 module k8s.io/ip-masq-agent
 
-go 1.22
+go 1.23
 
 require (
 	k8s.io/apimachinery v0.29.1
