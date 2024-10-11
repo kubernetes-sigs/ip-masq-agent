@@ -45,6 +45,69 @@ func TestIntervalSize(t *testing.T) {
 	}
 }
 
+func TestIntervalString(t *testing.T) {
+	for _, tc := range []struct {
+		name     string
+		interval Interval
+		want     string
+	}{
+		{
+			name: "standard",
+			interval: Interval{
+				First: 42,
+				Last:  44,
+			},
+			want: "42-44",
+		},
+		{
+			name: "single",
+			interval: Interval{
+				First: 42,
+				Last:  42,
+			},
+			want: "42",
+		},
+		{
+			name: "zero",
+			interval: Interval{
+				First: 0,
+				Last:  0,
+			},
+			want: "0",
+		},
+		{
+			name: "zero-range",
+			interval: Interval{
+				First: 0,
+				Last:  42,
+			},
+			want: "0-42",
+		},
+		{
+			name: "negative",
+			interval: Interval{
+				First: -1,
+				Last:  1,
+			},
+			want: "",
+		},
+		{
+			name: "reverse",
+			interval: Interval{
+				First: 44,
+				Last:  42,
+			},
+			want: "",
+		},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			if got := tc.interval.String(); got != tc.want {
+				t.Errorf("String = %q, want %q", got, tc.want)
+			}
+		})
+	}
+}
+
 func TestParseInterval(t *testing.T) {
 	for _, tc := range []struct {
 		name    string

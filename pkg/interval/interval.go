@@ -15,6 +15,16 @@ func (i Interval) Size() int {
 	return max(0, i.Last-i.First+1)
 }
 
+func (i Interval) String() string {
+	if i.First < 0 || i.Last < i.First {
+		return ""
+	}
+	if i.First == i.Last {
+		return strconv.Itoa(i.First)
+	}
+	return fmt.Sprintf("%d-%d", i.First, i.Last)
+}
+
 func ParseInterval(s string) (Interval, error) {
 	var i Interval
 
