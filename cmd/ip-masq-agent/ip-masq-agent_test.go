@@ -27,6 +27,7 @@ import (
 	"time"
 
 	"k8s.io/ip-masq-agent/cmd/ip-masq-agent/testing/fakefs"
+	"k8s.io/ip-masq-agent/pkg/interval"
 	utiliptables "k8s.io/kubernetes/pkg/util/iptables"
 	iptest "k8s.io/kubernetes/pkg/util/iptables/testing"
 )
@@ -41,8 +42,8 @@ func TestMain(m *testing.M) {
 	ec := 0
 	randomFully := " --random-fully"
 
-	for _, tc := range []struct{
-		arg string
+	for _, tc := range []struct {
+		arg  string
 		want string
 	}{
 		{
@@ -52,7 +53,7 @@ func TestMain(m *testing.M) {
 			arg: "false",
 		},
 		{
-			arg: "true",
+			arg:  "true",
 			want: randomFully,
 		},
 	} {
@@ -473,6 +474,114 @@ func TestEnsurePostroutingJump(t *testing.T) {
 	m := NewFakeMasqDaemon()
 	if err := m.ensurePostroutingJump(); err != nil {
 		t.Errorf("error: %v", err)
+	}
+}
+
+// tests writeMasqRules
+func TestWriteMasqRules(t *testing.T) {
+	var writeMasqRulesTests = []struct {
+		desc    string
+		toPorts string
+		want    string
+	}{
+		{
+			desc: "default",
+			want: string(utiliptables.Append) + " " + string(masqChain) + " " + masqRuleComment +
+				` -j MASQUERADE` + wantRandomFully + "\n",
+		},
+		{
+			desc:    "single range",
+			toPorts: "1024-29999",
+			want: string(utiliptables.Append) + " " + string(masqChain) + " " + masqRuleComment +
+				` -j MASQUERADE` + wantRandomFully + " -p tcp --to-ports 1024-29999\n" +
+				string(utiliptables.Append) + " " + string(masqChain) + " " + masqRuleComment +
+				` -j MASQUERADE` + wantRandomFully + " -p udp --to-ports 1024-29999\n" +
+				string(utiliptables.Append) + " " + string(masqChain) + " " + masqRuleComment +
+				` -j MASQUERADE` + wantRandomFully + " -p sctp --to-ports 1024-29999\n" +
+				string(utiliptables.Append) + " " + string(masqChain) + " " + masqRuleComment +
+				` -j MASQUERADE` + wantRandomFully + "\n",
+		},
+		{
+			desc:    "double ranges",
+			toPorts: "1024-29999,32768-65535",
+			want: string(utiliptables.Append) + " " + string(masqChain) + " " + masqRuleComment +
+				` -j MASQUERADE` + wantRandomFully + " -p tcp -m statistic --mode random --probability 0.469292562840114 --to-ports 1024-29999\n" +
+				string(utiliptables.Append) + " " + string(masqChain) + " " + masqRuleComment +
+				` -j MASQUERADE` + wantRandomFully + " -p tcp --to-ports 32768-65535\n" +
+				string(utiliptables.Append) + " " + string(masqChain) + " " + masqRuleComment +
+				` -j MASQUERADE` + wantRandomFully + " -p udp -m statistic --mode random --probability 0.469292562840114 --to-ports 1024-29999\n" +
+				string(utiliptables.Append) + " " + string(masqChain) + " " + masqRuleComment +
+				` -j MASQUERADE` + wantRandomFully + " -p udp --to-ports 32768-65535\n" +
+				string(utiliptables.Append) + " " + string(masqChain) + " " + masqRuleComment +
+				` -j MASQUERADE` + wantRandomFully + " -p sctp -m statistic --mode random --probability 0.469292562840114 --to-ports 1024-29999\n" +
+				string(utiliptables.Append) + " " + string(masqChain) + " " + masqRuleComment +
+				` -j MASQUERADE` + wantRandomFully + " -p sctp --to-ports 32768-65535\n" +
+				string(utiliptables.Append) + " " + string(masqChain) + " " + masqRuleComment +
+				` -j MASQUERADE` + wantRandomFully + "\n",
+		},
+		{
+			desc:    "triple ranges",
+			toPorts: "1024-29999,32768-49151,61000-65535",
+			want: string(utiliptables.Append) + " " + string(masqChain) + " " + masqRuleComment +
+				` -j MASQUERADE` + wantRandomFully + " -p tcp -m statistic --mode random --probability 0.5807279140612474 --to-ports 1024-29999\n" +
+				string(utiliptables.Append) + " " + string(masqChain) + " " + masqRuleComment +
+				` -j MASQUERADE` + wantRandomFully + " -p tcp -m statistic --mode random --probability 0.7831739961759082 --to-ports 32768-49151\n" +
+				string(utiliptables.Append) + " " + string(masqChain) + " " + masqRuleComment +
+				` -j MASQUERADE` + wantRandomFully + " -p tcp --to-ports 61000-65535\n" +
+				string(utiliptables.Append) + " " + string(masqChain) + " " + masqRuleComment +
+				` -j MASQUERADE` + wantRandomFully + " -p udp -m statistic --mode random --probability 0.5807279140612474 --to-ports 1024-29999\n" +
+				string(utiliptables.Append) + " " + string(masqChain) + " " + masqRuleComment +
+				` -j MASQUERADE` + wantRandomFully + " -p udp -m statistic --mode random --probability 0.7831739961759082 --to-ports 32768-49151\n" +
+				string(utiliptables.Append) + " " + string(masqChain) + " " + masqRuleComment +
+				` -j MASQUERADE` + wantRandomFully + " -p udp --to-ports 61000-65535\n" +
+				string(utiliptables.Append) + " " + string(masqChain) + " " + masqRuleComment +
+				` -j MASQUERADE` + wantRandomFully + " -p sctp -m statistic --mode random --probability 0.5807279140612474 --to-ports 1024-29999\n" +
+				string(utiliptables.Append) + " " + string(masqChain) + " " + masqRuleComment +
+				` -j MASQUERADE` + wantRandomFully + " -p sctp -m statistic --mode random --probability 0.7831739961759082 --to-ports 32768-49151\n" +
+				string(utiliptables.Append) + " " + string(masqChain) + " " + masqRuleComment +
+				` -j MASQUERADE` + wantRandomFully + " -p sctp --to-ports 61000-65535\n" +
+				string(utiliptables.Append) + " " + string(masqChain) + " " + masqRuleComment +
+				` -j MASQUERADE` + wantRandomFully + "\n",
+		},
+		{
+			desc:    "individual ports",
+			toPorts: "1024,65535",
+			want: string(utiliptables.Append) + " " + string(masqChain) + " " + masqRuleComment +
+				` -j MASQUERADE` + wantRandomFully + " -p tcp -m statistic --mode random --probability 0.5 --to-ports 1024\n" +
+				string(utiliptables.Append) + " " + string(masqChain) + " " + masqRuleComment +
+				` -j MASQUERADE` + wantRandomFully + " -p tcp --to-ports 65535\n" +
+				string(utiliptables.Append) + " " + string(masqChain) + " " + masqRuleComment +
+				` -j MASQUERADE` + wantRandomFully + " -p udp -m statistic --mode random --probability 0.5 --to-ports 1024\n" +
+				string(utiliptables.Append) + " " + string(masqChain) + " " + masqRuleComment +
+				` -j MASQUERADE` + wantRandomFully + " -p udp --to-ports 65535\n" +
+				string(utiliptables.Append) + " " + string(masqChain) + " " + masqRuleComment +
+				` -j MASQUERADE` + wantRandomFully + " -p sctp -m statistic --mode random --probability 0.5 --to-ports 1024\n" +
+				string(utiliptables.Append) + " " + string(masqChain) + " " + masqRuleComment +
+				` -j MASQUERADE` + wantRandomFully + " -p sctp --to-ports 65535\n" +
+				string(utiliptables.Append) + " " + string(masqChain) + " " + masqRuleComment +
+				` -j MASQUERADE` + wantRandomFully + "\n",
+		},
+	}
+
+	for _, tt := range writeMasqRulesTests {
+		t.Run(tt.desc, func(t *testing.T) {
+			var toPorts interval.Intervals
+			if tt.toPorts != "" {
+				tp, err := interval.ParseIntervals(tt.toPorts)
+				if err != nil {
+					t.Fatalf("Invalid --to-ports spec: %q", tt.toPorts)
+				}
+				toPorts = tp
+			}
+
+			lines := bytes.NewBuffer(nil)
+			writeMasqRules(lines, toPorts)
+
+			s := lines.String()
+			if s != tt.want {
+				t.Errorf("writeMasqRules(lines, %q):\n   got: %q\n  want: %q", tt.toPorts, s, tt.want)
+			}
+		})
 	}
 }
 
