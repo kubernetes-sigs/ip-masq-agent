@@ -44,16 +44,22 @@ Note that we created the `ConfigMap` in the same namespace as the DaemonSet Pods
 
 ### Agent Flags
 
-The agent accepts two flags, which may be specified in the yaml file.
+The agent accepts five flags, which may be specified in the yaml file.
 
 `masq-chain`
-:  The name of the `iptables` chain to use. By default set to `IP-MASQ-AGENT`
+:  The name of the `iptables` chain to use. By default set to `IP-MASQ-AGENT`.
 
 `nomasq-all-reserved-ranges`
 :  Whether or not to masquerade all RFC reserved ranges when the configmap is empty. The default is `false`. When `false`, the agent will masquerade to every destination except the ranges reserved by RFC 1918 (namely `10.0.0.0/8`, `172.16.0.0/12`, and `192.168.0.0/16`). When `true`, the agent will masquerade to every destination that is not marked reserved by an RFC. The full list of ranges is (`10.0.0.0/8`, `172.16.0.0/12`, `192.168.0.0/16`, `100.64.0.0/10`, `192.0.0.0/24`, `192.0.2.0/24`, `192.88.99.0/24`, `198.18.0.0/15`, `198.51.100.0/24`, `203.0.113.0/24`, and `240.0.0.0/4`). Note however, that this list of ranges is overridden by specifying the nonMasqueradeCIDRs key in the agent configmap.
 
 `enable-ipv6`
-: Whether to configurate ip6tables rules. By default `enable-ipv6` is false. 
+: Whether to configurate ip6tables rules. By default `enable-ipv6` is false.
+
+`random-fully`
+: Since ip-masq-agent v2.10, `--random-fully` started to be set by default on the MASQUERADE rule generated (by defaulting this flag to `true`) to avoid a Linux kernel racing issue. This can cause the source port used on the node to be always different from the source port used on the pod. Set this flag to `false` to restore the previous behavior.
+
+`to-ports`
+: MASQUERADE rules of iptables can select any port between 1024 and 65535 inclusively by default. This flag adds additional MASQUERADE rules for TCP, UDP and SCTP traffic to specify explicit source ports to be used (traffic in other protocols is unchanged). Ranges can be specified using `1024-29999` syntax, or multiple ranges with `1024-29999,32768-65535` where the traffic is balanced among all ports within the ranges.
 
 ## Rationale
 (from the [incubator proposal](https://gist.github.com/mtaufen/253309166e7d5aa9e9b560600a438447))
