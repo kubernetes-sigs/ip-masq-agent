@@ -61,7 +61,7 @@ var (
 
 	noMasqueradeAllReservedRangesFlag = flag.Bool("nomasq-all-reserved-ranges", false, "Whether to disable masquerade for all IPv4 ranges reserved by RFCs.")
 	enableIPv6                        = flag.Bool("enable-ipv6", false, "Whether to enable IPv6.")
-	randomFully                       = flag.Bool("random-fully", true, "Whether to add --random-fully to the masquerade rule.")
+	randomFully                       = flag.Bool("random-fully", true, "Whether to add --random-fully to the masquerade rule, if the system supports it.")
 )
 
 // MasqConfig object
@@ -337,7 +337,7 @@ func (m *MasqDaemon) syncMasqRules() error {
 	}
 
 	// masquerade all other traffic that is not bound for a --dst-type LOCAL destination
-	writeMasqRules(lines, toPorts)
+	writeMasqRules(lines, m.iptables.HasRandomFully(), toPorts)
 
 	writeLine(lines, "COMMIT")
 	m.logVerbose(lines.String(), logParentID).Infof("IPv4 masquerading rules: %q", lines)
@@ -382,7 +382,7 @@ func (m *MasqDaemon) syncMasqRulesIPv6() error {
 	}
 
 	// masquerade all other traffic that is not bound for a --dst-type LOCAL destination
-	writeMasqRules(lines6, toPorts)
+	writeMasqRules(lines6, m.ip6tables.HasRandomFully(), toPorts)
 
 	writeLine(lines6, "COMMIT")
 	m.logVerbose(lines6.String(), logParentID).Infof("IPv6 masquerading rules: %q", lines6)
@@ -429,9 +429,9 @@ func writeNonMasqRule(lines *bytes.Buffer, cidr string) {
 
 const masqRuleComment = `-m comment --comment "ip-masq-agent: outbound traffic is subject to MASQUERADE (must be last in chain)"`
 
-func writeMasqRules(lines *bytes.Buffer, toPorts interval.Intervals) {
+func writeMasqRules(lines *bytes.Buffer, hasRandomFully bool, toPorts interval.Intervals) {
 	args := []string{masqRuleComment, "-j", "MASQUERADE"}
-	if *randomFully {
+	if hasRandomFully && *randomFully {
 		args = append(args, "--random-fully")
 	}
 

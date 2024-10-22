@@ -33,6 +33,7 @@ import (
 	iptest "k8s.io/kubernetes/pkg/util/iptables/testing"
 )
 
+var hasRandomFully bool
 var wantRandomFully string
 
 // turn off glog logging during tests to avoid clutter in output
@@ -45,22 +46,34 @@ func TestMain(m *testing.M) {
 
 	for _, tc := range []struct {
 		arg  string
+		has  bool
 		want string
 	}{
-		{
-			want: randomFully,
-		},
+		{},
 		{
 			arg: "false",
 		},
 		{
+			arg: "true",
+		},
+		{
+			has:  true,
+			want: randomFully,
+		},
+		{
+			arg: "false",
+			has: true,
+		},
+		{
 			arg:  "true",
+			has:  true,
 			want: randomFully,
 		},
 	} {
 		if tc.arg != "" {
 			flag.Set("random-fully", tc.arg)
 		}
+		hasRandomFully = tc.has
 		wantRandomFully = tc.want
 
 		ec = max(ec, m.Run())
@@ -72,6 +85,7 @@ func TestMain(m *testing.M) {
 func NewFakeMasqDaemon() *MasqDaemon {
 	masqChain = "IP-MASQ-AGENT"
 	iptables := iptest.NewFake()
+	iptables.SetHasRandomFully(hasRandomFully)
 	iptables.Dump = &iptest.IPTablesDump{
 		Tables: []iptest.Table{
 			{
@@ -83,6 +97,7 @@ func NewFakeMasqDaemon() *MasqDaemon {
 		},
 	}
 	ip6tables := iptest.NewIPv6Fake()
+	ip6tables.SetHasRandomFully(hasRandomFully)
 	ip6tables.Dump = &iptest.IPTablesDump{
 		Tables: []iptest.Table{
 			{
@@ -577,7 +592,7 @@ func TestWriteMasqRules(t *testing.T) {
 			}
 
 			lines := bytes.NewBuffer(nil)
-			writeMasqRules(lines, toPorts)
+			writeMasqRules(lines, hasRandomFully, toPorts)
 
 			s := lines.String()
 			if s != tt.want {
