@@ -23,6 +23,7 @@ import (
 	"fmt"
 	"net"
 	"os"
+	"strconv"
 	"strings"
 	"time"
 
@@ -30,6 +31,7 @@ import (
 	"k8s.io/component-base/logs"
 	"k8s.io/component-base/version/verflag"
 	"k8s.io/ip-masq-agent/cmd/ip-masq-agent/testing/fakefs"
+	"k8s.io/ip-masq-agent/pkg/interval"
 	"k8s.io/ip-masq-agent/pkg/version"
 	"k8s.io/klog/v2"
 	utiliptables "k8s.io/kubernetes/pkg/util/iptables"
@@ -46,8 +48,14 @@ const (
 
 var (
 	// name of nat chain for iptables masquerade rules
-	masqChain                         utiliptables.Chain
-	masqChainFlag                     = flag.String("masq-chain", "IP-MASQ-AGENT", `Name of nat chain for iptables masquerade rules.`)
+	masqChain     utiliptables.Chain
+	masqChainFlag = flag.String("masq-chain", "IP-MASQ-AGENT", `Name of nat chain for iptables masquerade rules.`)
+
+	// create MASQUERADE iptables rules with --to-ports flag
+	toPorts          interval.Intervals
+	toPortsProtocols = []string{"tcp", "udp", "sctp"}
+	toPortsFlag      = flag.String("to-ports", "", fmt.Sprintf(`Masquerade to specified ports only, example: "1024-29999,32768-65535"; applicable to %s protocols.`, strings.Join(toPortsProtocols, ", ")))
+
 	noMasqueradeAllReservedRangesFlag = flag.Bool("nomasq-all-reserved-ranges", false, "Whether to disable masquerade for all IPv4 ranges reserved by RFCs.")
 	enableIPv6                        = flag.Bool("enable-ipv6", false, "Whether to enable IPv6.")
 	randomFully                       = flag.Bool("random-fully", true, "Whether to add --random-fully to the masquerade rule.")
@@ -138,6 +146,14 @@ func main() {
 	})
 
 	masqChain = utiliptables.Chain(*masqChainFlag)
+
+	if *toPortsFlag != "" {
+		tp, err := interval.ParseIntervals(*toPortsFlag)
+		if err != nil {
+			klog.Exitf("Invalid --to-ports flag %q: %v", *toPortsFlag, err)
+		}
+		toPorts = tp
+	}
 
 	c := NewMasqConfig(*noMasqueradeAllReservedRangesFlag)
 
@@ -299,7 +315,7 @@ func (m *MasqDaemon) syncMasqRules() error {
 	}
 
 	// masquerade all other traffic that is not bound for a --dst-type LOCAL destination
-	writeMasqRule(lines)
+	writeMasqRules(lines, toPorts)
 
 	writeLine(lines, "COMMIT")
 
@@ -338,7 +354,7 @@ func (m *MasqDaemon) syncMasqRulesIPv6() error {
 		}
 
 		// masquerade all other traffic that is not bound for a --dst-type LOCAL destination
-		writeMasqRule(lines6)
+		writeMasqRules(lines6, toPorts)
 
 		writeLine(lines6, "COMMIT")
 
@@ -385,12 +401,33 @@ func writeNonMasqRule(lines *bytes.Buffer, cidr string) {
 
 const masqRuleComment = `-m comment --comment "ip-masq-agent: outbound traffic is subject to MASQUERADE (must be last in chain)"`
 
-func writeMasqRule(lines *bytes.Buffer) {
+func writeMasqRules(lines *bytes.Buffer, toPorts interval.Intervals) {
 	args := []string{masqRuleComment, "-j", "MASQUERADE"}
 	if *randomFully {
 		args = append(args, "--random-fully")
 	}
+
+	for _, protocol := range toPortsProtocols {
+		writeMasqToPortsRules(lines, append(args, "-p", protocol), toPorts)
+	}
+
 	writeRule(lines, utiliptables.Append, masqChain, args...)
+}
+
+func writeMasqToPortsRules(lines *bytes.Buffer, args []string, toPorts interval.Intervals) {
+	size := toPorts.Size()
+
+	for _, i := range toPorts {
+		args := args
+
+		s := i.Size()
+		if size != s {
+			args = append(args, "-m", "statistic", "--mode", "random", "--probability", strconv.FormatFloat(float64(s)/float64(size), 'f', -1, 64))
+		}
+		size -= s
+
+		writeRule(lines, utiliptables.Append, masqChain, append(args, "--to-ports", i.String())...)
+	}
 }
 
 // Similar syntax to utiliptables.Interface.EnsureRule, except you don't pass a table
