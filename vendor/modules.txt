@@ -160,6 +160,7 @@ k8s.io/component-base/logs
 k8s.io/component-base/logs/api/v1
 k8s.io/component-base/logs/internal/setverbositylevel
 k8s.io/component-base/logs/klogflags
+k8s.io/component-base/logs/logreduction
 k8s.io/component-base/metrics
 k8s.io/component-base/metrics/legacyregistry
 k8s.io/component-base/metrics/prometheus/feature
