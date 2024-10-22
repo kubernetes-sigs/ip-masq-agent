@@ -26,6 +26,7 @@ import (
 	"testing"
 	"time"
 
+	"k8s.io/component-base/logs/logreduction"
 	"k8s.io/ip-masq-agent/cmd/ip-masq-agent/testing/fakefs"
 	"k8s.io/ip-masq-agent/pkg/interval"
 	utiliptables "k8s.io/kubernetes/pkg/util/iptables"
@@ -93,9 +94,10 @@ func NewFakeMasqDaemon() *MasqDaemon {
 		},
 	}
 	return &MasqDaemon{
-		config:    &MasqConfig{},
-		iptables:  iptables,
-		ip6tables: ip6tables,
+		config:       &MasqConfig{},
+		iptables:     iptables,
+		ip6tables:    ip6tables,
+		logReduction: logreduction.NewLogReduction(0),
 	}
 }
 
