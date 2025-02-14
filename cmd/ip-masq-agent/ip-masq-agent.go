@@ -96,7 +96,7 @@ func NewMasqConfig(masqAllReservedRanges bool) *MasqConfig {
 		CidrLimit:          64,
 		MasqLinkLocal:      false,
 		MasqLinkLocalIPv6:  false,
-		ResyncInterval:     metav1.Duration{60 * time.Second},
+		ResyncInterval:     metav1.Duration{Duration: 60 * time.Second},
 	}
 }
 
