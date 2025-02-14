@@ -26,6 +26,7 @@ import (
 	"testing"
 	"time"
 
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/component-base/logs/logreduction"
 	"k8s.io/ip-masq-agent/cmd/ip-masq-agent/testing/fakefs"
 	"k8s.io/ip-masq-agent/pkg/interval"
@@ -123,7 +124,7 @@ func NewMasqConfigNoReservedRanges() *MasqConfig {
 		NonMasqueradeCIDRs: []string{"10.0.0.0/8", "172.16.0.0/12", "192.168.0.0/16"},
 		CidrLimit:          64,
 		MasqLinkLocal:      false,
-		ResyncInterval:     Duration(60 * time.Second),
+		ResyncInterval:     metav1.Duration{60 * time.Second},
 	}
 }
 
@@ -145,7 +146,7 @@ func NewMasqConfigWithReservedRanges() *MasqConfig {
 			"240.0.0.0/4"},
 		MasqLinkLocal:  false,
 		CidrLimit:      64,
-		ResyncInterval: Duration(60 * time.Second),
+		ResyncInterval: metav1.Duration{60 * time.Second},
 	}
 }
 
@@ -197,7 +198,7 @@ resyncInterval: 5s
 		NonMasqueradeCIDRs: []string{"172.16.0.0/12", "10.0.0.0/8"},
 		MasqLinkLocal:      true,
 		CidrLimit:          64,
-		ResyncInterval:     Duration(5 * time.Second)}},
+		ResyncInterval:     metav1.Duration{5 * time.Second}}},
 
 	{"valid yaml file, just nonMasqueradeCIDRs", fakefs.StringFS{File: `
 nonMasqueradeCIDRs:
@@ -222,7 +223,7 @@ resyncInterval: 5m
 		CidrLimit:          64,
 		NonMasqueradeCIDRs: NewMasqConfigNoReservedRanges().NonMasqueradeCIDRs,
 		MasqLinkLocal:      NewMasqConfigNoReservedRanges().MasqLinkLocal,
-		ResyncInterval:     Duration(5 * time.Minute)}},
+		ResyncInterval:     metav1.Duration{5 * time.Minute}}},
 
 	// invalid yaml
 	{"invalid yaml file", fakefs.StringFS{File: `*`}, fmt.Errorf("yaml: did not find expected alphabetic or numeric character"), NewMasqConfigNoReservedRanges()},
@@ -239,7 +240,7 @@ resyncInterval: 5m
 			CidrLimit:          64,
 			NonMasqueradeCIDRs: []string{"172.16.0.0/12", "10.0.0.0/8"},
 			MasqLinkLocal:      true,
-			ResyncInterval:     Duration(5 * time.Second)}},
+			ResyncInterval:     metav1.Duration{5 * time.Second}}},
 
 	{"valid json file, just nonMasqueradeCIDRs", fakefs.StringFS{File: `
 {
@@ -272,7 +273,7 @@ resyncInterval: 5m
 			CidrLimit:          64,
 			NonMasqueradeCIDRs: NewMasqConfigNoReservedRanges().NonMasqueradeCIDRs,
 			MasqLinkLocal:      NewMasqConfigNoReservedRanges().MasqLinkLocal,
-			ResyncInterval:     Duration(5 * time.Minute)}},
+			ResyncInterval:     metav1.Duration{5 * time.Minute}}},
 
 	// invalid json
 	{"invalid json file", fakefs.StringFS{File: `{*`}, fmt.Errorf("invalid character '*' looking for beginning of object key string"), NewMasqConfigNoReservedRanges()},
@@ -292,7 +293,7 @@ resyncInterval: 5m
 			CidrLimit:          64,
 			NonMasqueradeCIDRs: []string{"172.16.0.0/12", "10.0.0.0/8", "fc00::/7"},
 			MasqLinkLocal:      true,
-			ResyncInterval:     Duration(5 * time.Second)}},
+			ResyncInterval:     metav1.Duration{5 * time.Second}}},
 }
 
 // tests MasqDaemon.syncConfig

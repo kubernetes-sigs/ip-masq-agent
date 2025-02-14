@@ -27,6 +27,7 @@ import (
 	"strings"
 	"time"
 
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	utilyaml "k8s.io/apimachinery/pkg/util/yaml"
 	"k8s.io/component-base/logs"
 	"k8s.io/component-base/logs/logreduction"
@@ -66,29 +67,11 @@ var (
 
 // MasqConfig object
 type MasqConfig struct {
-	NonMasqueradeCIDRs []string `json:"nonMasqueradeCIDRs"`
-	CidrLimit          int      `json:"cidrLimit"`
-	MasqLinkLocal      bool     `json:"masqLinkLocal"`
-	MasqLinkLocalIPv6  bool     `json:"masqLinkLocalIPv6"`
-	ResyncInterval     Duration `json:"resyncInterval"`
-}
-
-// Duration - Go's JSON unmarshaler can't handle time.ParseDuration syntax when unmarshaling into time.Duration, so we do it here
-type Duration time.Duration
-
-// UnmarshalJSON ...
-func (d *Duration) UnmarshalJSON(json []byte) error {
-	if json[0] == '"' {
-		s := string(json[1 : len(json)-1])
-		t, err := time.ParseDuration(s)
-		if err != nil {
-			return err
-		}
-		*d = Duration(t)
-		return nil
-	}
-	s := string(json)
-	return fmt.Errorf("expected string value for unmarshal to field of type Duration, got %q", s)
+	NonMasqueradeCIDRs []string        `json:"nonMasqueradeCIDRs"`
+	CidrLimit          int             `json:"cidrLimit"`
+	MasqLinkLocal      bool            `json:"masqLinkLocal"`
+	MasqLinkLocalIPv6  bool            `json:"masqLinkLocalIPv6"`
+	ResyncInterval     metav1.Duration `json:"resyncInterval"`
 }
 
 // NewMasqConfig returns a MasqConfig with default values
@@ -113,7 +96,7 @@ func NewMasqConfig(masqAllReservedRanges bool) *MasqConfig {
 		CidrLimit:          64,
 		MasqLinkLocal:      false,
 		MasqLinkLocalIPv6:  false,
-		ResyncInterval:     Duration(60 * time.Second),
+		ResyncInterval:     metav1.Duration{60 * time.Second},
 	}
 }
 
@@ -176,7 +159,9 @@ func (m *MasqDaemon) Run() {
 	// Periodically resync to reconfigure or heal from any rule decay
 	for {
 		func() {
-			defer time.Sleep(time.Duration(m.config.ResyncInterval))
+			defer func() {
+				time.Sleep(m.config.ResyncInterval.Duration)
+			}()
 			// resync config
 			if err := m.osSyncConfig(); err != nil {
 				klog.Errorf("Error syncing configuration: %v", err)
