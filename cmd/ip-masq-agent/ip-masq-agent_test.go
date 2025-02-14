@@ -264,6 +264,18 @@ resyncInterval: 5m
 			MasqLinkLocal:      true,
 			ResyncInterval:     NewMasqConfigNoReservedRanges().ResyncInterval}},
 
+	// There is custom unmarshaller here so check its behavior.
+	{"valid json file, just resyncInterval but escaped", fakefs.StringFS{File: `
+{
+	"resyncInterval": "\u0035\u006d"
+}
+`},
+		nil, &MasqConfig{
+			CidrLimit:          64,
+			NonMasqueradeCIDRs: NewMasqConfigNoReservedRanges().NonMasqueradeCIDRs,
+			MasqLinkLocal:      NewMasqConfigNoReservedRanges().MasqLinkLocal,
+			ResyncInterval:     metav1.Duration{Duration: 5 * time.Minute}}},
+
 	{"valid json file, just resyncInterval", fakefs.StringFS{File: `
 {
 	"resyncInterval": "5m"
