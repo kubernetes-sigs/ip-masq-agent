@@ -3,7 +3,7 @@ module k8s.io/ip-masq-agent
 go 1.24
 
 require (
-	github.com/google/go-cmp v0.6.0
+	github.com/google/go-cmp v0.7.0
 	k8s.io/apimachinery v0.32.2
 	k8s.io/component-base v0.32.2
 	k8s.io/klog/v2 v2.130.1
