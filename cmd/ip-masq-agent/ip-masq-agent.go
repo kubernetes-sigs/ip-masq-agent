@@ -223,7 +223,7 @@ func (m *MasqDaemon) syncConfig(fs fakefs.FileSystem) error {
 		m.config.MasqLinkLocal = c.MasqLinkLocal
 		m.config.MasqLinkLocalIPv6 = c.MasqLinkLocalIPv6
 		m.config.ResyncInterval = c.ResyncInterval
-		m.logVerbose("not-found", logSyncParentID).Infof("No config file found at %q, using default values.", configPath)
+		m.logVerbose("not-found", logSyncParentID).Infof("No config file found at %q, using default values: %v", configPath, err)
 		return nil
 	}
 	m.logVerbose("found", logSyncParentID).Infof("Config file found at %q", configPath)
