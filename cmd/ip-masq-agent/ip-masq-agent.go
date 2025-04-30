@@ -37,7 +37,6 @@ import (
 	"k8s.io/ip-masq-agent/pkg/version"
 	"k8s.io/klog/v2"
 	utiliptables "k8s.io/kubernetes/pkg/util/iptables"
-	utilexec "k8s.io/utils/exec"
 )
 
 const (
@@ -110,11 +109,10 @@ type MasqDaemon struct {
 
 // NewMasqDaemon returns a MasqDaemon with default values, including an initialized utiliptables.Interface
 func NewMasqDaemon(c *MasqConfig) *MasqDaemon {
-	execer := utilexec.New()
 	protocolv4 := utiliptables.ProtocolIPv4
 	protocolv6 := utiliptables.ProtocolIPv6
-	iptables := utiliptables.New(execer, protocolv4)
-	ip6tables := utiliptables.New(execer, protocolv6)
+	iptables := utiliptables.New(protocolv4)
+	ip6tables := utiliptables.New(protocolv6)
 	return &MasqDaemon{
 		config:       c,
 		iptables:     iptables,
