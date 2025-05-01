@@ -1,7 +1,6 @@
 module k8s.io/ip-masq-agent
 
-go 1.24
-toolchain go1.24.1
+go 1.24.0
 
 require (
 	github.com/google/go-cmp v0.7.0
@@ -9,7 +8,6 @@ require (
 	k8s.io/component-base v0.33.0
 	k8s.io/klog/v2 v2.130.1
 	k8s.io/kubernetes v1.33.0
-	k8s.io/utils v0.0.0-20241104100929-3ea5e8cea738
 )
 
 require (
@@ -39,6 +37,7 @@ require (
 	google.golang.org/protobuf v1.36.5 // indirect
 	gopkg.in/inf.v0 v0.9.1 // indirect
 	k8s.io/api v0.33.0 // indirect
+	k8s.io/utils v0.0.0-20241104100929-3ea5e8cea738 // indirect
 	sigs.k8s.io/json v0.0.0-20241010143419-9aa6b5e7a4b3 // indirect
 	sigs.k8s.io/randfill v1.0.0 // indirect
 	sigs.k8s.io/structured-merge-diff/v4 v4.6.0 // indirect
