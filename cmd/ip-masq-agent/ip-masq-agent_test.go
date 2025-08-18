@@ -191,14 +191,17 @@ var syncConfigTests = []struct {
 nonMasqueradeCIDRs:
   - 172.16.0.0/12
   - 10.0.0.0/8
+forceMasqueradeCIDRs:
+  - 10.8.42.0/16
 cidrLimit: 64
 masqLinkLocal: true
 resyncInterval: 5s
 `}, nil, &MasqConfig{
-		NonMasqueradeCIDRs: []string{"172.16.0.0/12", "10.0.0.0/8"},
-		MasqLinkLocal:      true,
-		CidrLimit:          64,
-		ResyncInterval:     metav1.Duration{Duration: 5 * time.Second}}},
+		NonMasqueradeCIDRs:   []string{"172.16.0.0/12", "10.0.0.0/8"},
+		ForceMasqueradeCIDRs: []string{"10.8.42.0/16"},
+		MasqLinkLocal:        true,
+		CidrLimit:            64,
+		ResyncInterval:       metav1.Duration{Duration: 5 * time.Second}}},
 
 	{"valid yaml file, just nonMasqueradeCIDRs", fakefs.StringFS{File: `
 nonMasqueradeCIDRs:
@@ -683,6 +686,57 @@ func TestWriteLine(t *testing.T) {
 	}
 	if s != want {
 		t.Errorf("writeLine(lines, \"a\", \"b\", \"c\") wrote %q, want %q", s, want)
+	}
+}
+
+// tests writeForceMasqRule
+func TestWriteForceMasqRule(t *testing.T) {
+	var writeForceMasqRuleTests = []struct {
+		desc           string
+		cidr           string
+		hasRandomFully bool
+		want           string
+	}{
+		{
+			desc:           "with ipv4 force masquerade cidr, no random-fully",
+			cidr:           "10.8.0.0/24",
+			hasRandomFully: false,
+			want: string(utiliptables.Append) + " " + string(masqChain) +
+				" " + forceMasqRuleComment + " -d 10.8.0.0/24 -j MASQUERADE\n",
+		},
+		{
+			desc:           "with ipv4 force masquerade cidr, with random-fully",
+			cidr:           "10.1.2.0/16",
+			hasRandomFully: true,
+			want: string(utiliptables.Append) + " " + string(masqChain) +
+				" " + forceMasqRuleComment + " -d 10.1.2.0/16 -j MASQUERADE --random-fully\n",
+		},
+		{
+			desc:           "with ipv6 force masquerade cidr, with random-fully",
+			cidr:           "fc00::/7",
+			hasRandomFully: true,
+			want: string(utiliptables.Append) + " " + string(masqChain) +
+				" " + forceMasqRuleComment + " -d fc00::/7 -j MASQUERADE --random-fully\n",
+		},
+	}
+
+	for _, tt := range writeForceMasqRuleTests {
+		t.Run(tt.desc, func(t *testing.T) {
+			lines := bytes.NewBuffer(nil)
+			// Set the global randomFully flag to true for random-fully tests
+			oldRandomFully := *randomFully
+			*randomFully = true
+			defer func() { *randomFully = oldRandomFully }()
+			writeForceMasqRule(lines, tt.cidr, tt.hasRandomFully)
+
+			s, err := lines.ReadString('\n')
+			if err != nil {
+				t.Error("writeForceMasqRule did not append a newline")
+			}
+			if s != tt.want {
+				t.Errorf("writeForceMasqRule(lines, %q, %v):\n   got: %q\n  want: %q", tt.cidr, tt.hasRandomFully, s, tt.want)
+			}
+		})
 	}
 }
 

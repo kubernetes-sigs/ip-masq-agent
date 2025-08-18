@@ -66,11 +66,12 @@ var (
 
 // MasqConfig object
 type MasqConfig struct {
-	NonMasqueradeCIDRs []string        `json:"nonMasqueradeCIDRs"`
-	CidrLimit          int             `json:"cidrLimit"`
-	MasqLinkLocal      bool            `json:"masqLinkLocal"`
-	MasqLinkLocalIPv6  bool            `json:"masqLinkLocalIPv6"`
-	ResyncInterval     metav1.Duration `json:"resyncInterval"`
+	ForceMasqueradeCIDRs []string        `json:"forceMasqueradeCIDRs"`
+	NonMasqueradeCIDRs   []string        `json:"nonMasqueradeCIDRs"`
+	CidrLimit            int             `json:"cidrLimit"`
+	MasqLinkLocal        bool            `json:"masqLinkLocal"`
+	MasqLinkLocalIPv6    bool            `json:"masqLinkLocalIPv6"`
+	ResyncInterval       metav1.Duration `json:"resyncInterval"`
 }
 
 // NewMasqConfig returns a MasqConfig with default values
@@ -312,6 +313,13 @@ func (m *MasqDaemon) syncMasqRules() error {
 		writeNonMasqRule(lines, linkLocalCIDR)
 	}
 
+	// force-masquerade for user-provided CIDRs
+	for _, cidr := range m.config.ForceMasqueradeCIDRs {
+		if !isIPv6CIDR(cidr) {
+			writeForceMasqRule(lines, cidr, m.iptables.HasRandomFully())
+		}
+	}
+
 	// non-masquerade for user-provided CIDRs
 	for _, cidr := range m.config.NonMasqueradeCIDRs {
 		if !isIPv6CIDR(cidr) {
@@ -356,6 +364,12 @@ func (m *MasqDaemon) syncMasqRulesIPv6() error {
 	// link-local IPv6 CIDR is non-masquerade by default
 	if !m.config.MasqLinkLocalIPv6 {
 		writeNonMasqRule(lines6, linkLocalCIDRIPv6)
+	}
+
+	for _, cidr := range m.config.ForceMasqueradeCIDRs {
+		if isIPv6CIDR(cidr) {
+			writeForceMasqRule(lines6, cidr, m.ip6tables.HasRandomFully())
+		}
 	}
 
 	for _, cidr := range m.config.NonMasqueradeCIDRs {
@@ -419,6 +433,17 @@ func writeMasqRules(lines *bytes.Buffer, hasRandomFully bool, toPorts interval.I
 
 	for _, protocol := range toPortsProtocols {
 		writeMasqToPortsRules(lines, append(args, "-p", protocol), toPorts)
+	}
+
+	writeRule(lines, utiliptables.Append, masqChain, args...)
+}
+
+const forceMasqRuleComment = `-m comment --comment "ip-masq-agent: specific outbound traffic is subject to MASQUERADE (must be before nonMasqRules in chain)"`
+
+func writeForceMasqRule(lines *bytes.Buffer, cidr string, hasRandomFully bool) {
+	args := []string{forceMasqRuleComment, "-d", cidr, "-j", "MASQUERADE"}
+	if hasRandomFully && *randomFully {
+		args = append(args, "--random-fully")
 	}
 
 	writeRule(lines, utiliptables.Append, masqChain, args...)
