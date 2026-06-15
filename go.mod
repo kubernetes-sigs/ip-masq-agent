@@ -4,10 +4,10 @@ go 1.26.4
 
 require (
 	github.com/google/go-cmp v0.7.0
-	k8s.io/apimachinery v0.36.1
-	k8s.io/component-base v0.36.1
+	k8s.io/apimachinery v0.36.2
+	k8s.io/component-base v0.36.2
 	k8s.io/klog/v2 v2.140.0
-	k8s.io/kubernetes v1.36.1
+	k8s.io/kubernetes v1.36.2
 )
 
 require (
@@ -38,7 +38,7 @@ require (
 	golang.org/x/text v0.38.0 // indirect
 	google.golang.org/protobuf v1.36.12-0.20260120151049-f2248ac996af // indirect
 	gopkg.in/inf.v0 v0.9.1 // indirect
-	k8s.io/api v0.36.1 // indirect
+	k8s.io/api v0.36.2 // indirect
 	k8s.io/kube-openapi v0.0.0-20260603220949-865597e52e25 // indirect
 	k8s.io/utils v0.0.0-20260507154919-ff6756f316d2 // indirect
 	sigs.k8s.io/json v0.0.0-20250730193827-2d320260d730 // indirect
